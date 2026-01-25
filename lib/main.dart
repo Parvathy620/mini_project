@@ -7,10 +7,6 @@ import 'core/services/auth_service.dart';
 import 'core/services/data_service.dart';
 import 'features/common/screens/unified_login_screen.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'dart:ui';
-// Note: We might need a better router later ensuring we check role on auto-login.
-// For now, this simple "Home" will let people choose who they are (Admin or Partner).
-
 import 'firebase_options.dart';
 
 // ...
@@ -57,18 +53,27 @@ class MyApp extends StatelessWidget {
         Provider<AdminService>(create: (_) => AdminService()),
       ],
       child: MaterialApp(
-        title: 'Naviga',
+        title: 'Navika',
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
           useMaterial3: true,
           colorScheme: ColorScheme.fromSeed(
-            seedColor: const Color(0xFF5EB1BF), // New Primary
-            background: const Color(0xFFCDEDF6), // Light Background
-            brightness: Brightness.light,
+            seedColor: const Color(0xFF37474F), // Professional Slate
+            brightness: Brightness.dark,
+            primary: const Color(0xFF64B5F6), // Soft Blue Accent
+            secondary: const Color(0xFFCFD8DC), // Light Slate Accent
+            surface: const Color(0xFF263238),
           ),
-          primaryColor: const Color(0xFF5EB1BF),
-          scaffoldBackgroundColor: const Color(0xFFCDEDF6),
-          textTheme: GoogleFonts.poppinsTextTheme(Theme.of(context).textTheme),
+          primaryColor: const Color(0xFF64B5F6),
+          scaffoldBackgroundColor: const Color(0xFF102027), // Deep Blue-Grey
+          textTheme: GoogleFonts.interTextTheme(Theme.of(context).textTheme),
+          pageTransitionsTheme: const PageTransitionsTheme(
+            builders: {
+              TargetPlatform.android: ZoomPageTransitionsBuilder(),
+              TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+              TargetPlatform.windows: ZoomPageTransitionsBuilder(),
+            },
+          ),
         ),
         home: const WelcomeScreen(),
       ),

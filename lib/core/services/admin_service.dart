@@ -13,17 +13,19 @@ class AdminService {
     });
   }
 
-  Future<void> addDestination(String name, String description) async {
+  Future<void> addDestination(String name, String description, String district) async {
     await _firestore.collection('destinations').add({
       'name': name,
       'description': description,
+      'district': district,
     });
   }
 
-  Future<void> updateDestination(String id, String name, String description) async {
+  Future<void> updateDestination(String id, String name, String description, String district) async {
     await _firestore.collection('destinations').doc(id).update({
       'name': name,
       'description': description,
+      'district': district,
     });
   }
 

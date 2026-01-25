@@ -1,17 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/services/admin_service.dart';
+import '../../../../core/widgets/glass_container.dart';
+import '../../../../core/widgets/app_background.dart';
 
 class AddEditDestinationScreen extends StatefulWidget {
   final String? destinationId;
   final String? currentName;
   final String? currentDescription;
+  final String? currentDistrict;
 
   const AddEditDestinationScreen({
     super.key, 
     this.destinationId, 
     this.currentName,
     this.currentDescription,
+    this.currentDistrict,
   });
 
   @override
@@ -22,7 +27,14 @@ class _AddEditDestinationScreenState extends State<AddEditDestinationScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _descriptionController = TextEditingController();
+  String? _selectedDistrict;
   bool _isLoading = false;
+
+  final List<String> _keralaDistricts = [
+    'Alappuzha', 'Ernakulam', 'Idukki', 'Kannur', 'Kasaragod',
+    'Kollam', 'Kottayam', 'Kozhikode', 'Malappuram', 'Palakkad',
+    'Pathanamthitta', 'Thiruvananthapuram', 'Thrissur', 'Wayanad',
+  ];
 
   @override
   void initState() {
@@ -32,6 +44,9 @@ class _AddEditDestinationScreenState extends State<AddEditDestinationScreen> {
     }
     if (widget.currentDescription != null) {
       _descriptionController.text = widget.currentDescription!;
+    }
+    if (widget.currentDistrict != null && _keralaDistricts.contains(widget.currentDistrict)) {
+      _selectedDistrict = widget.currentDistrict;
     }
   }
 
@@ -49,12 +64,17 @@ class _AddEditDestinationScreenState extends State<AddEditDestinationScreen> {
         final adminService = Provider.of<AdminService>(context, listen: false);
         
         if (widget.destinationId == null) {
-          await adminService.addDestination(_nameController.text.trim(), _descriptionController.text.trim());
+          await adminService.addDestination(
+            _nameController.text.trim(), 
+            _descriptionController.text.trim(),
+            _selectedDistrict!,
+          );
         } else {
           await adminService.updateDestination(
             widget.destinationId!, 
             _nameController.text.trim(), 
             _descriptionController.text.trim(),
+            _selectedDistrict!,
           );
         }
         if (mounted) {
@@ -72,39 +92,103 @@ class _AddEditDestinationScreenState extends State<AddEditDestinationScreen> {
     }
   }
 
+  InputDecoration _buildInputDecoration(String label, IconData icon) {
+    return InputDecoration(
+      labelText: label,
+      labelStyle: const TextStyle(color: Colors.white70),
+      prefixIcon: Icon(icon, color: Colors.white70),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: Colors.white30),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: Colors.white),
+      ),
+      filled: true,
+      fillColor: Colors.white.withValues(alpha: 0.05),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(widget.destinationId == null ? 'Add Destination' : 'Edit Destination')),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              TextFormField(
-                controller: _nameController,
-                decoration: const InputDecoration(labelText: 'Destination Name'),
-                validator: (v) => v!.isEmpty ? 'Enter name' : null,
-              ),
-              const SizedBox(height: 10),
-              TextFormField(
-                controller: _descriptionController,
-                decoration: const InputDecoration(labelText: 'Description'),
-                maxLines: 3,
-              ),
-              const SizedBox(height: 20),
-              _isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : ElevatedButton(
-                      onPressed: _save,
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                      ),
-                      child: Text(widget.destinationId == null ? 'Add Destination' : 'Update Destination'),
+      extendBodyBehindAppBar: true,
+      appBar: AppBar(
+        title: Text(
+          widget.destinationId == null ? 'Add Destination' : 'Edit Destination',
+          style: GoogleFonts.poppins(fontWeight: FontWeight.w600, color: Colors.white),
+        ),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.white),
+      ),
+      body: AppBackground(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16.0),
+            child: GlassContainer(
+              borderRadius: BorderRadius.circular(24),
+              padding: const EdgeInsets.all(24),
+              opacity: 0.15,
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextFormField(
+                      controller: _nameController,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: _buildInputDecoration('Destination Name', Icons.place),
+                      validator: (v) => v!.isEmpty ? 'Enter name' : null,
                     ),
-            ],
+                    const SizedBox(height: 16),
+                    DropdownButtonFormField<String>(
+                      value: _selectedDistrict,
+                      decoration: _buildInputDecoration('District', Icons.map),
+                      dropdownColor: const Color(0xFF203A43), // Matches theme
+                      style: const TextStyle(color: Colors.white),
+                      items: _keralaDistricts.map((district) {
+                        return DropdownMenuItem(
+                          value: district,
+                          child: Text(district, style: GoogleFonts.poppins()),
+                        );
+                      }).toList(),
+                      onChanged: (value) {
+                        setState(() {
+                          _selectedDistrict = value;
+                        });
+                      },
+                      validator: (value) => value == null ? 'Select a district' : null,
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _descriptionController,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: _buildInputDecoration('Description', Icons.description),
+                      maxLines: 3,
+                    ),
+                    const SizedBox(height: 30),
+                    _isLoading
+                        ? const Center(child: CircularProgressIndicator(color: Colors.white))
+                        : ElevatedButton(
+                            onPressed: _save,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.white,
+                              foregroundColor: const Color(0xFF203A43),
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            ),
+                            child: Text(
+                              widget.destinationId == null ? 'Add Destination' : 'Update Destination',
+                              style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                  ],
+                ),
+              ),
+            ),
           ),
         ),
       ),
