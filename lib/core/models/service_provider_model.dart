@@ -6,6 +6,11 @@ class ServiceProviderModel {
   final String categoryId;
   final bool isApproved;
   final DateTime? createdAt;
+  final double rating;
+  final String priceRange;
+  final List<String> services;
+  final String profileImageUrl;
+  final bool isAvailable;
 
   ServiceProviderModel({
     required this.uid,
@@ -15,6 +20,11 @@ class ServiceProviderModel {
     required this.categoryId,
     this.isApproved = false,
     this.createdAt,
+    this.rating = 0.0,
+    this.priceRange = '',
+    this.services = const [],
+    this.profileImageUrl = '',
+    this.isAvailable = true,
   });
 
   Map<String, dynamic> toMap() {
@@ -25,7 +35,12 @@ class ServiceProviderModel {
       'categoryId': categoryId,
       'isApproved': isApproved,
       'createdAt': createdAt,
-      'role': 'service_provider', // consistent role field
+      'role': 'service_provider',
+      'rating': rating,
+      'priceRange': priceRange,
+      'services': services,
+      'profileImageUrl': profileImageUrl,
+      'isAvailable': isAvailable,
     };
   }
 
@@ -38,6 +53,11 @@ class ServiceProviderModel {
       categoryId: data['categoryId'] ?? '',
       isApproved: data['isApproved'] ?? false,
       createdAt: data['createdAt'] != null ? (data['createdAt']).toDate() : null,
+      rating: (data['rating'] ?? 0.0).toDouble(),
+      priceRange: data['priceRange'] ?? '',
+      services: List<String>.from(data['services'] ?? []),
+      profileImageUrl: data['profileImageUrl'] ?? '',
+      isAvailable: data['isAvailable'] ?? true,
     );
   }
 }

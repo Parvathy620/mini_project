@@ -12,6 +12,7 @@ import '../../service_provider/screens/sp_dashboard_screen.dart';
 import '../../service_provider/screens/sp_registration_screen.dart';
 import '../../tourist/screens/tourist_dashboard_screen.dart';
 import '../../tourist/screens/tourist_registration_screen.dart';
+import 'password_reset_screen.dart';
 
 enum UserRole { tourist, provider, admin }
 
@@ -232,7 +233,24 @@ class _UnifiedLoginScreenState extends State<UnifiedLoginScreen> with SingleTick
                             icon: Icons.lock_outline_rounded,
                             isPassword: true,
                           ),
-                          const SizedBox(height: 30),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: TextButton(
+                              onPressed: () => Navigator.push(
+                                context, 
+                                MaterialPageRoute(builder: (_) => const PasswordResetScreen())
+                              ),
+                              child: Text(
+                                'Forgot Password?',
+                                style: GoogleFonts.inter(
+                                  color: const Color(0xFF38BDF8),
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 10),
                           
                           _isLoading
                            ? const Center(child: CircularProgressIndicator(color: Colors.cyanAccent))

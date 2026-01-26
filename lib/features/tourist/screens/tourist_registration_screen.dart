@@ -19,18 +19,40 @@ class _TouristRegistrationScreenState extends State<TouristRegistrationScreen> {
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _retypePasswordController = TextEditingController();
+  
   bool _isLoading = false;
+  bool _passwordsMatch = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _passwordController.addListener(_validatePasswords);
+    _retypePasswordController.addListener(_validatePasswords);
+  }
+
+  void _validatePasswords() {
+    setState(() {
+      _passwordsMatch = _passwordController.text == _retypePasswordController.text;
+    });
+  }
 
   @override
   void dispose() {
     _nameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
+    _retypePasswordController.dispose();
     super.dispose();
   }
 
   Future<void> _register() async {
     if (_formKey.currentState!.validate()) {
+      if (!_passwordsMatch) {
+        _showGlowSnackBar("Passwords do not match.", isError: true);
+        return;
+      }
+
       setState(() => _isLoading = true);
 
       try {
@@ -47,7 +69,13 @@ class _TouristRegistrationScreenState extends State<TouristRegistrationScreen> {
         }
       } catch (e) {
         if (mounted) {
-           _showGlowSnackBar('Registration Failed: $e', isError: true);
+           String message = "Registration failed.";
+           if (e.toString().contains("email-already-in-use")) {
+             message = "Account already exists. Please login.";
+           } else if (e.toString().contains("weak-password")) {
+             message = "Password is too weak.";
+           }
+           _showGlowSnackBar(message, isError: true);
         }
       } finally {
         if (mounted) {
@@ -83,12 +111,21 @@ class _TouristRegistrationScreenState extends State<TouristRegistrationScreen> {
     bool isPassword = false,
     TextInputType? keyboardType,
     String? Function(String?)? validator,
+    bool showErrorBorder = false,
   }) {
-    return Container(
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
       decoration: BoxDecoration(
         color: const Color(0xFF0F172A).withOpacity(0.5),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.1)),
+        border: Border.all(
+          color: showErrorBorder 
+              ? Colors.redAccent.withOpacity(0.5) 
+              : Colors.white.withOpacity(0.1),
+        ),
+        boxShadow: showErrorBorder
+            ? [BoxShadow(color: Colors.redAccent.withOpacity(0.1), blurRadius: 10)]
+            : [],
       ),
       child: TextFormField(
         controller: controller,
@@ -110,6 +147,10 @@ class _TouristRegistrationScreenState extends State<TouristRegistrationScreen> {
 
   @override
   Widget build(BuildContext context) {
+    bool canSubmit = _passwordController.text.isNotEmpty && 
+                     _retypePasswordController.text.isNotEmpty && 
+                     _passwordsMatch;
+
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
@@ -200,31 +241,71 @@ class _TouristRegistrationScreenState extends State<TouristRegistrationScreen> {
                               return null;
                             },
                           ),
+                          const SizedBox(height: 16),
+                          _buildGlowInput(
+                            controller: _retypePasswordController,
+                            label: 'Retype Passkey',
+                            icon: Icons.fingerprint,
+                            isPassword: true,
+                            showErrorBorder: !_passwordsMatch && _retypePasswordController.text.isNotEmpty,
+                            validator: (value) {
+                              if (value != _passwordController.text) return 'Passkeys do not match';
+                              return null;
+                            },
+                          ),
+                          // Subtle match indicator
+                           if (_retypePasswordController.text.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 8, left: 12),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    _passwordsMatch ? Icons.check_circle_outline : Icons.error_outline,
+                                    size: 14,
+                                    color: _passwordsMatch ? Colors.greenAccent : Colors.redAccent,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    _passwordsMatch ? 'Passkeys match' : 'Passkeys must match',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 12,
+                                      color: _passwordsMatch ? Colors.greenAccent : Colors.redAccent,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+
                           const SizedBox(height: 30),
                           _isLoading
                               ? const Center(child: CircularProgressIndicator(color: Colors.cyanAccent))
                               : GestureDetector(
-                                  onTap: _register,
-                                  child: Container(
+                                  onTap: canSubmit ? _register : null,
+                                  child: AnimatedContainer(
+                                    duration: const Duration(milliseconds: 300),
                                     height: 55,
                                     decoration: BoxDecoration(
                                       borderRadius: BorderRadius.circular(16),
-                                      gradient: const LinearGradient(
-                                        colors: [Color(0xFF38BDF8), Color(0xFF818CF8)],
+                                      gradient: LinearGradient(
+                                        colors: canSubmit 
+                                          ? [const Color(0xFF38BDF8), const Color(0xFF818CF8)]
+                                          : [Colors.grey.withOpacity(0.3), Colors.grey.withOpacity(0.2)],
                                       ),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: const Color(0xFF38BDF8).withOpacity(0.4),
-                                          blurRadius: 20,
-                                          offset: const Offset(0, 8),
-                                        )
-                                      ],
+                                      boxShadow: canSubmit 
+                                      ? [
+                                          BoxShadow(
+                                            color: const Color(0xFF38BDF8).withOpacity(0.4),
+                                            blurRadius: 20,
+                                            offset: const Offset(0, 8),
+                                          )
+                                        ]
+                                      : [],
                                     ),
                                     child: Center(
                                       child: Text(
                                         'CONFIRM IDENTITY',
                                         style: GoogleFonts.inter(
-                                          color: Colors.white,
+                                          color: canSubmit ? Colors.white : Colors.white38,
                                           fontWeight: FontWeight.bold,
                                           letterSpacing: 2,
                                           fontSize: 14,

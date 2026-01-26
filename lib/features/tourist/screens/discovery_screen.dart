@@ -2,7 +2,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../../../core/services/auth_service.dart';
 import '../../../core/models/destination_model.dart';
 import '../../../core/services/data_service.dart';
 import '../../../core/widgets/app_background.dart';
@@ -10,16 +9,15 @@ import '../../../core/widgets/luxury_glass.dart';
 import '../../../core/widgets/runway_reveal.dart';
 import '../../../core/widgets/glass_filter_panel.dart';
 import 'provider_search_screen.dart';
-import 'user_profile_screen.dart';
 
-class TouristDashboardScreen extends StatefulWidget {
-  const TouristDashboardScreen({super.key});
+class DiscoveryScreen extends StatefulWidget {
+  const DiscoveryScreen({super.key});
 
   @override
-  State<TouristDashboardScreen> createState() => _TouristDashboardScreenState();
+  State<DiscoveryScreen> createState() => _DiscoveryScreenState();
 }
 
-class _TouristDashboardScreenState extends State<TouristDashboardScreen> {
+class _DiscoveryScreenState extends State<DiscoveryScreen> {
   final TextEditingController _searchController = TextEditingController();
   Timer? _debounce;
   String _searchQuery = '';
@@ -28,9 +26,10 @@ class _TouristDashboardScreenState extends State<TouristDashboardScreen> {
   // Filters State
   List<String> _selectedDistricts = [];
   List<String> _selectedCategories = [];
-  RangeValues _priceRange = const RangeValues(0, 10000); 
+  RangeValues _priceRange = const RangeValues(0, 10000); // Placeholder relative range if price was available
   bool _onlyAvailable = false;
 
+  // Mock Data for Filters (In a real app, fetch unique values from DB)
   final List<String> _allDistricts = [
     'Thiruvananthapuram', 'Kollam', 'Pathanamthitta', 'Alappuzha', 
     'Kottayam', 'Idukki', 'Ernakulam', 'Thrissur', 'Palakkad', 
@@ -90,71 +89,15 @@ class _TouristDashboardScreenState extends State<TouristDashboardScreen> {
     );
   }
 
-  // Logout Logic
-  void _handleLogout() async {
-    final shouldLogout = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF0F172A),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text('Logout', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold)),
-        content: Text('Are you sure you want to logout?', style: GoogleFonts.inter(color: Colors.white70)),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text('Cancel', style: GoogleFonts.inter(color: Colors.cyanAccent)),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: Text('Logout', style: GoogleFonts.inter(color: Colors.redAccent)),
-          ),
-        ],
-      ),
-    );
-
-    if (shouldLogout == true) {
-      if (!mounted) return;
-      await Provider.of<AuthService>(context, listen: false).signOut();
-      if (mounted) {
-        Navigator.of(context).popUntil((route) => route.isFirst);
-      }
-    }
-  }
-
-  Future<bool> _onWillPop() async {
-    final shouldExit = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF0F172A),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text('Exit App', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold)),
-        content: Text('Do you want to exit the application?', style: GoogleFonts.inter(color: Colors.white70)),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text('Cancel', style: GoogleFonts.inter(color: Colors.cyanAccent)),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: Text('Exit', style: GoogleFonts.inter(color: Colors.redAccent)),
-          ),
-        ],
-      ),
-    );
-    return shouldExit ?? false;
-  }
-
   @override
   Widget build(BuildContext context) {
     final dataService = Provider.of<DataService>(context, listen: false);
 
-    return WillPopScope(
-      onWillPop: _onWillPop,
-      child: Scaffold(
-        extendBodyBehindAppBar: true,
+    return Scaffold(
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
         title: Text(
-          'EXPLORE',
+          'DISCOVER',
           style: GoogleFonts.outfit(
             fontWeight: FontWeight.bold,
             color: Colors.white,
@@ -165,15 +108,7 @@ class _TouristDashboardScreenState extends State<TouristDashboardScreen> {
         centerTitle: true,
         backgroundColor: Colors.transparent,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.person, color: Colors.white54), 
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const UserProfileScreen()),
-            );
-          }, 
-        ),
+        leading: const BackButton(color: Colors.white),
         actions: [
           IconButton(
             icon: Icon(
@@ -181,10 +116,6 @@ class _TouristDashboardScreenState extends State<TouristDashboardScreen> {
               color: Colors.white,
             ),
             onPressed: () => setState(() => _isGridView = !_isGridView),
-          ),
-          IconButton(
-            icon: const Icon(Icons.logout, color: Colors.white54),
-            onPressed: _handleLogout,
           ),
           const SizedBox(width: 8),
         ],
@@ -288,6 +219,8 @@ class _TouristDashboardScreenState extends State<TouristDashboardScreen> {
                     if (_onlyAvailable) {
                       destinations = destinations.where((d) => d.isAvailable).toList();
                     }
+                    // Price filtering for destinations isn't directly applicable unless destination has entry fee, 
+                    // but we will skip it for now as per model limitations or assume it filters providers later.
 
                     if (destinations.isEmpty) {
                       return Center(
@@ -341,7 +274,7 @@ class _TouristDashboardScreenState extends State<TouristDashboardScreen> {
           ),
         ),
       ),
-    ));
+    );
   }
 
   Widget _buildFilterChip(String label, VoidCallback onDelete) {
@@ -376,7 +309,7 @@ class _TouristDashboardScreenState extends State<TouristDashboardScreen> {
         tag: 'destination_card_${destination.id}',
         child: LuxuryGlass(
           padding: EdgeInsets.zero,
-          blur: 0, 
+          blur: 0, // Performance optimization for grids, rely on image mainly
           opacity: 0.05,
           child: Stack(
             fit: StackFit.expand,

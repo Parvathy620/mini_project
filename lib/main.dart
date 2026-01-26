@@ -8,6 +8,9 @@ import 'core/services/data_service.dart';
 import 'features/common/screens/unified_login_screen.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'firebase_options.dart';
+import 'core/widgets/app_background.dart';
+import 'core/widgets/runway_reveal.dart';
+import 'core/widgets/luxury_glass.dart';
 
 // ...
 
@@ -81,100 +84,307 @@ class MyApp extends StatelessWidget {
   }
 }
 
-class WelcomeScreen extends StatelessWidget {
+class WelcomeScreen extends StatefulWidget {
   const WelcomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final primary = Theme.of(context).primaryColor;
+  State<WelcomeScreen> createState() => _WelcomeScreenState();
+}
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFCDEDF6),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 28.0, vertical: 32.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Spacer(),
-              // Logo
-              Center(
-                child: Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
-                        blurRadius: 20,
-                        offset: const Offset(0, 10),
-                      ),
-                    ],
-                  ),
-                  child: Icon(
-                    Icons.mode_of_travel_sharp,
-                    size: 80,
-                    color: primary,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 40),
-              Text(
-                'Discover\nNew Adventures',
-                style: GoogleFonts.poppins(
-                  fontSize: 36,
-                  fontWeight: FontWeight.bold,
-                  color: const Color(0xFF0F3A4B), // Darker shade for contrast
-                  height: 1.2,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'Your ultimate travel companion for exploring the world and managing your services.',
-                style: GoogleFonts.poppins(
-                  fontSize: 16,
-                  color: Colors.black54,
-                  fontWeight: FontWeight.w400,
-                ),
-              ),
-              const Spacer(),
-              
-              // Unified Login Button
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (context) => const UnifiedLoginScreen(),
-                      ),
-                    );
-                  },
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 18),
-                    backgroundColor: primary,
-                    foregroundColor: Colors.white,
-                    elevation: 4,
-                    shadowColor: primary.withOpacity(0.4),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                  ),
-                  child: Text(
-                    'Get Started',
-                    style: GoogleFonts.poppins(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-            ],
-          ),
+class _WelcomeScreenState extends State<WelcomeScreen> with TickerProviderStateMixin {
+  late AnimationController _runwayController;
+  late Animation<double> _runwayAnimation;
+  bool _isTakingOff = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Continuous runway light movement
+    _runwayController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 2),
+    )..repeat();
+    
+    _runwayAnimation = Tween<double>(begin: 0, end: 1).animate(_runwayController);
+  }
+
+  @override
+  void dispose() {
+    _runwayController.dispose();
+    super.dispose();
+  }
+
+  void _handleGetStarted() async {
+    setState(() => _isTakingOff = true);
+    // Simulate acceleration delay before navigation
+    await Future.delayed(const Duration(milliseconds: 800));
+    if (mounted) {
+      Navigator.of(context).push(
+        PageRouteBuilder(
+          pageBuilder: (context, animation, secondaryAnimation) => const UnifiedLoginScreen(),
+          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            return FadeTransition(opacity: animation, child: child);
+          },
+          transitionDuration: const Duration(milliseconds: 800),
         ),
+      );
+      // Reset state if pop back
+      await Future.delayed(const Duration(seconds: 1));
+      if (mounted) setState(() => _isTakingOff = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      extendBodyBehindAppBar: true,
+      body: Stack(
+        children: [
+          // 1. Base Premium Background
+          const AppBackground(child: SizedBox.expand()),
+
+          // 2. Runway Floor Effect (Bottom perspective)
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            height: MediaQuery.of(context).size.height * 0.4,
+            child: Transform(
+              transform: Matrix4.identity()
+                ..setEntry(3, 2, 0.001) // Perspective
+                ..rotateX(1.2), // Tilt to make it look like a floor
+              alignment: Alignment.bottomCenter,
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      Colors.transparent,
+                      Colors.black.withOpacity(0.8),
+                    ],
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                  ),
+                ),
+                child: Stack(
+                  children: [
+                    // Moving Runway Lights
+                    AnimatedBuilder(
+                      animation: _runwayAnimation,
+                      builder: (context, child) {
+                        return Stack(
+                          children: List.generate(5, (index) {
+                            return Positioned(
+                              top: ((index * 0.2 + _runwayAnimation.value) % 1.0) * 400, // Move down
+                              left: 0,
+                              right: 0,
+                              child: Center(
+                                child: Container(
+                                  width: 4,
+                                  height: 40,
+                                  color: Colors.white.withOpacity(
+                                    (1 - ((index * 0.2 + _runwayAnimation.value) % 1.0)).clamp(0, 0.5) // Fade as it gets closer/lower
+                                  ),
+                                ),
+                              ),
+                            );
+                          }),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+
+          // 3. Main Content
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24.0),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Spacer(flex: 2),
+                  
+                  // Animated Plane Icon (The "Hero")
+                  AnimatedScale(
+                    scale: _isTakingOff ? 5.0 : 1.0,
+                    duration: const Duration(milliseconds: 800),
+                    curve: Curves.easeInExpo,
+                    child: AnimatedOpacity(
+                      opacity: _isTakingOff ? 0.0 : 1.0,
+                      duration: const Duration(milliseconds: 400),
+                      child: const RunwayReveal(
+                        delayMs: 200,
+                        child: Icon(
+                          Icons.airplanemode_active_rounded,
+                          size: 100,
+                          color: Color(0xFF38BDF8), // Sky Blue
+                          shadows: [
+                            Shadow(color: Color(0xFF38BDF8), blurRadius: 20),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 40),
+                  
+                  // Glass Welcome Card
+                  AnimatedOpacity(
+                    opacity: _isTakingOff ? 0.0 : 1.0,
+                    duration: const Duration(milliseconds: 300),
+                    child: RunwayReveal(
+                      delayMs: 600,
+                      slideUp: true,
+                      child: LuxuryGlass(
+                        opacity: 0.05,
+                        blur: 20,
+                        borderRadius: BorderRadius.circular(24),
+                        child: Column(
+                          children: [
+                            Text(
+                              'NAVIKA',
+                              style: GoogleFonts.outfit(
+                                fontSize: 42,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                                letterSpacing: 4,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              'Premium Travel Experience',
+                              textAlign: TextAlign.center,
+                              style: GoogleFonts.inter(
+                                fontSize: 14,
+                                color: Colors.white70,
+                                letterSpacing: 1.5,
+                                fontWeight: FontWeight.w300,
+                              ),
+                            ),
+                            const SizedBox(height: 24),
+                            Container(
+                              height: 1,
+                              width: 60,
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [Colors.transparent, Colors.white.withOpacity(0.5), Colors.transparent],
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 24),
+                            Text(
+                              'Your journey begins with a single tap.\nExperience the future of travel.',
+                              textAlign: TextAlign.center,
+                              style: GoogleFonts.inter(
+                                fontSize: 14,
+                                color: Colors.white60,
+                                height: 1.6,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  
+                  const Spacer(flex: 3),
+                  
+                  // "Get Started" Accelerating Button
+                  AnimatedOpacity(
+                    opacity: _isTakingOff ? 0.0 : 1.0,
+                    duration: const Duration(milliseconds: 200),
+                    child: RunwayReveal(
+                      delayMs: 1000,
+                      slideUp: true,
+                      child: GestureDetector(
+                        onTap: _handleGetStarted,
+                        child: Container(
+                          height: 70,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(35),
+                            gradient: LinearGradient(
+                              colors: [
+                                const Color(0xFF38BDF8).withOpacity(0.8),
+                                const Color(0xFF6366F1).withOpacity(0.8),
+                              ],
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFF38BDF8).withOpacity(0.3),
+                                blurRadius: 30,
+                                spreadRadius: -5,
+                                offset: const Offset(0, 10),
+                              ),
+                              BoxShadow(
+                                color: Colors.white.withOpacity(0.1),
+                                blurRadius: 10,
+                                spreadRadius: -2,
+                                offset: const Offset(0, 2),
+                              )
+                            ],
+                            border: Border.all(
+                              color: Colors.white.withOpacity(0.2),
+                              width: 1,
+                            ),
+                          ),
+                          child: Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              // Button Shine Plane
+                              Positioned(
+                                top: 0,
+                                width: 200,
+                                height: 35,
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      begin: Alignment.topCenter,
+                                      end: Alignment.bottomCenter,
+                                      colors: [
+                                        Colors.white.withOpacity(0.3),
+                                        Colors.transparent,
+                                      ],
+                                    ),
+                                    borderRadius: const BorderRadius.vertical(top: Radius.circular(35)),
+                                  ),
+                                ),
+                              ),
+                              
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    'GET STARTED',
+                                    style: GoogleFonts.outfit(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                      letterSpacing: 2,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  const Icon(
+                                    Icons.arrow_forward_rounded, 
+                                    color: Colors.white,
+                                    size: 20,
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 40),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
