@@ -11,6 +11,7 @@ import '../../../core/widgets/runway_reveal.dart';
 import '../../../core/widgets/glass_filter_panel.dart';
 import 'provider_search_screen.dart';
 import 'user_profile_screen.dart';
+import 'booking/tourist_booking_flow.dart' as import_booking;
 
 class TouristDashboardScreen extends StatefulWidget {
   const TouristDashboardScreen({super.key});
@@ -181,6 +182,14 @@ class _TouristDashboardScreenState extends State<TouristDashboardScreen> {
               color: Colors.white,
             ),
             onPressed: () => setState(() => _isGridView = !_isGridView),
+          ),
+          IconButton(
+            icon: const Icon(Icons.flight_takeoff, color: Colors.blueAccent),
+            tooltip: 'Demo Booking Flow',
+            onPressed: () {
+               // Demo connection for review
+               Navigator.push(context, MaterialPageRoute(builder: (_) => const import_booking.TouristBookingFlow(serviceName: 'Demo Service', price: 150.0)));
+            },
           ),
           IconButton(
             icon: const Icon(Icons.logout, color: Colors.white54),

@@ -2,11 +2,28 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/services/auth_service.dart';
-import '../../../core/widgets/glass_container.dart';
+import '../../../core/widgets/luxury_glass.dart';
 import '../../../core/widgets/app_background.dart';
+import '../../../core/widgets/runway_reveal.dart';
+import 'panels/enquiries_panel.dart';
+import 'panels/bookings_panel.dart';
+import 'panels/availability_calendar.dart';
 
-class SPDashboardScreen extends StatelessWidget {
+class SPDashboardScreen extends StatefulWidget {
   const SPDashboardScreen({super.key});
+
+  @override
+  State<SPDashboardScreen> createState() => _SPDashboardScreenState();
+}
+
+class _SPDashboardScreenState extends State<SPDashboardScreen> {
+  int _selectedIndex = 0;
+
+  final List<Widget> _panels = [
+    const EnquiriesPanel(),
+    const BookingsPanel(),
+    const AvailabilityCalendarPanel(),
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -14,10 +31,11 @@ class SPDashboardScreen extends StatelessWidget {
       extendBodyBehindAppBar: true,
       appBar: AppBar(
         title: Text(
-          'Service Provider Dashboard',
-          style: GoogleFonts.poppins(
-            fontWeight: FontWeight.w600,
+          'FLIGHT DECK',
+          style: GoogleFonts.outfit(
+            fontWeight: FontWeight.bold,
             color: Colors.white,
+            letterSpacing: 2.0,
           ),
         ),
         backgroundColor: Colors.transparent,
@@ -26,7 +44,7 @@ class SPDashboardScreen extends StatelessWidget {
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 8.0),
-            child: GlassContainer(
+            child: LuxuryGlass(
               padding: const EdgeInsets.all(8),
               borderRadius: BorderRadius.circular(12),
               blur: 5,
@@ -45,63 +63,106 @@ class SPDashboardScreen extends StatelessWidget {
         ],
       ),
       body: AppBackground(
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: GlassContainer(
-              borderRadius: BorderRadius.circular(24),
-              padding: const EdgeInsets.all(32),
-              opacity: 0.15,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.2),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(Icons.access_time_filled_rounded, size: 64, color: Colors.orangeAccent),
+        child: Column(
+          children: [
+            const SizedBox(height: 100),
+            
+            // Glassmorphic Tab Bar
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20.0),
+              child: RunwayReveal(
+                delayMs: 200,
+                child: LuxuryGlass(
+                  height: 60,
+                  opacity: 0.1,
+                  blur: 15,
+                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 5),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      _buildTabItem(0, 'ENQUIRIES', Icons.mail_outline),
+                      _buildTabItem(1, 'BOOKINGS', Icons.confirmation_number_outlined),
+                      _buildTabItem(2, 'AVAILABILITY', Icons.calendar_today_outlined),
+                    ],
                   ),
-                  const SizedBox(height: 24),
-                  Text(
-                    'Account Pending Approval',
-                    style: GoogleFonts.poppins(
-                      fontSize: 22, 
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    'You will be able to manage your services once your account is approved by the Admin.',
-                    style: GoogleFonts.poppins(
-                      fontSize: 14,
-                      color: Colors.white70,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 30),
-                  ElevatedButton(
-                    onPressed: () {
-                       // Refresh logic or contact admin could go here
-                    },
-                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.white,
-                      foregroundColor: const Color(0xFF203A43),
-                      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                    child: Text(
-                      'Check Status',
-                      style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
-          ),
+            
+            const SizedBox(height: 20),
+            
+            // Main Content Area with Horizontal Motion
+            Expanded(
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 600),
+                switchInCurve: Curves.easeOutCubic,
+                switchOutCurve: Curves.easeInCubic,
+                transitionBuilder: (Widget child, Animation<double> animation) {
+                  final offsetAnimation = Tween<Offset>(
+                    begin: const Offset(0.2, 0.0), // Runway slide effect
+                    end: Offset.zero,
+                  ).animate(animation);
+                  
+                  return FadeTransition(
+                    opacity: animation,
+                    child: SlideTransition(
+                      position: offsetAnimation,
+                      child: child,
+                    ),
+                  );
+                },
+                child: KeyedSubtree(
+                  key: ValueKey<int>(_selectedIndex),
+                  child: _panels[_selectedIndex],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTabItem(int index, String label, IconData icon) {
+    final isSelected = _selectedIndex == index;
+    return GestureDetector(
+      onTap: () => setState(() => _selectedIndex = index),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.white.withOpacity(0.2) : Colors.transparent,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: Colors.blueAccent.withOpacity(0.3),
+                    blurRadius: 15,
+                    spreadRadius: 2,
+                  ) 
+                ]
+              : null,
+        ),
+        child: Row(
+          children: [
+            Icon(
+              icon,
+              color: isSelected ? Colors.white : Colors.white60,
+              size: 18,
+            ),
+            if (isSelected) ...[
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: GoogleFonts.outfit(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 12,
+                  letterSpacing: 1.0,
+                ),
+              ),
+            ],
+          ],
         ),
       ),
     );
