@@ -5,7 +5,7 @@
   <h1 style="font-size: 3rem; margin-bottom: 10px;">Navika</h1>
   
   <p>
-    <b>Explore Local. Connect Global.</b>
+    <b>Navigate the Heart of Kerala</b>
   </p>
   
   <p>
