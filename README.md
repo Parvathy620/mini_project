@@ -13,7 +13,7 @@
   </p>
 
   <p>
-    <img src="https://img.shields.io/badge/Platform-iOS%20%7C%20Android-black?style=for-the-badge&logo=apple" />
+    <img src="https://img.shields.io/badge/Platform-Android-3DDC84?style=for-the-badge&logo=android&logoColor=white" />
     <img src="https://img.shields.io/badge/Status-Beta%20Release-blue?style=for-the-badge" />
     <img src="https://img.shields.io/badge/Focus-Trusted%20Travel-green?style=for-the-badge" />
   </p>
