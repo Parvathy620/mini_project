@@ -37,7 +37,7 @@
                 <data android:scheme="navika" android:host="reset" />
             </intent-filter>
              <!-- Fallback for standard web links if configured -->
-            <intent-filter>
+            <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
