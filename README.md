@@ -102,4 +102,4 @@ We have tailored the **Navika** experience for three distinct user groups to ens
   <br>
   <br>
   <a href="#top">⬆ Back to Top</a>
-</div># mini_project
+</div>
