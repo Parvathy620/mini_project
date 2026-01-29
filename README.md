@@ -1,6 +1,6 @@
 <div align="center">
 
-  <img src="https://via.placeholder.com/150/007bff/ffffff?text=N" alt="Navika Logo" width="120" height="120" style="border-radius: 20px;" />
+  <img src="app_icon.png" alt="Navika Logo" width="120" height="120" style="border-radius: 20px;" />
 
   <h1 style="font-size: 3rem; margin-bottom: 10px;">Navika</h1>
   
