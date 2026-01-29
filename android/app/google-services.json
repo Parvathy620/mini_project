@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "947702825886",
+    "firebase_url": "https://project1-b26ed-default-rtdb.firebaseio.com",
+    "project_id": "project1-b26ed",
+    "storage_bucket": "project1-b26ed.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:947702825886:android:eeda2e85f415cb8d844c8f",
+        "android_client_info": {
+          "package_name": "com.tourism.tourism_app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "947702825886-u2v6ppl4d40uf6v6kh1ainq66mbmkkn0.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.tourism.tourism_app",
+            "certificate_hash": "e17438b502c511b2f50543c9015becc4b7cd288c"
+          }
+        },
+        {
+          "client_id": "947702825886-06o9nvgdmtefdjn8m2i79jt3ohp9ntt2.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDXxUCsCqQ5VSE3tZJfwldh-CTeBrx7jiA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "947702825886-06o9nvgdmtefdjn8m2i79jt3ohp9ntt2.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
