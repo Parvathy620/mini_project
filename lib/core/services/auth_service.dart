@@ -161,37 +161,20 @@ class AuthService {
     }
   }
 
-  // Password Reset with Deep Link
+  // Password Reset
   Future<void> sendPasswordResetEmail(String email) async {
     try {
-      // Configuration for Deep Linking
-      // NOTE: strict match of packageName is important
-      ActionCodeSettings actionCodeSettings = ActionCodeSettings(
-        url: 'https://project1-b26ed.firebaseapp.com/__/auth/action?mode=resetPassword', // Must match one in Authorized Redirect URIs in Console
-        handleCodeInApp: true,
-        iOSBundleId: 'com.tourism.tourism_app', // Updated to match Android package likely
-        androidPackageName: 'com.tourism.tourism_app', // Corrected from build.gradle.kts
-        androidInstallApp: true,
-        androidMinimumVersion: '12',
-      );
-
-      await _auth.sendPasswordResetEmail(
-        email: email, 
-        actionCodeSettings: actionCodeSettings
-      );
+      await _auth.sendPasswordResetEmail(email: email);
     } on FirebaseAuthException catch (e) {
       if (kDebugMode) {
         print('Password reset error: ${e.code}');
       }
-      switch (e.code) {
-        case 'user-not-found':
-          throw Exception('No user found with this email.');
-        case 'invalid-email':
-          throw Exception('Invalid email address.');
-        case 'missing-android-pkg-name':
-          throw Exception('Android package name is missing.');
-        default:
-          throw Exception('Failed to send password reset email: ${e.message}');
+      if (e.code == 'user-not-found') {
+        throw Exception('No account found with this email address. Please register first.');
+      } else if (e.code == 'invalid-email') {
+        throw Exception('Invalid email address.');
+      } else {
+        throw Exception('Failed to send password reset email: ${e.message}');
       }
     } catch (e) {
       if (kDebugMode) {

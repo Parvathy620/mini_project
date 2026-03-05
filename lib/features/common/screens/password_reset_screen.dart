@@ -33,7 +33,7 @@ class _PasswordResetScreenState extends State<PasswordResetScreen> {
             .sendPasswordResetEmail(_emailController.text.trim());
         
         setState(() => _isEmailSent = true);
-        if (mounted) _showGlowSnackBar('Link sent! Check your email to reset your password inside the app.', isError: false);
+        if (mounted) _showGlowSnackBar('If registered, a link has been sent! Check your email to reset your password inside the app.', isError: false);
         
         // Delay to let user read, then pop
         await Future.delayed(const Duration(seconds: 3));

@@ -9,6 +9,7 @@ class BookingModel {
   final String serviceName;
   final DateTime bookingDate;
   final String timeSlot; // Format: "HH:mm"
+  final int numberOfPeople;
   final String status; // 'pending', 'confirmed', 'cancelled', 'completed', 'rejected'
   final double totalPrice;
   final String? notes;
@@ -24,6 +25,7 @@ class BookingModel {
     required this.serviceName,
     required this.bookingDate,
     required this.timeSlot,
+    this.numberOfPeople = 1,
     this.status = 'pending',
     required this.totalPrice,
     this.notes,
@@ -40,6 +42,7 @@ class BookingModel {
       'serviceName': serviceName,
       'bookingDate': Timestamp.fromDate(bookingDate),
       'timeSlot': timeSlot,
+      'numberOfPeople': numberOfPeople,
       'status': status,
       'totalPrice': totalPrice,
       'notes': notes,
@@ -58,6 +61,7 @@ class BookingModel {
       serviceName: map['serviceName'] ?? 'General Service',
       bookingDate: (map['bookingDate'] as Timestamp).toDate(),
       timeSlot: map['timeSlot'] ?? '',
+      numberOfPeople: map['numberOfPeople'] ?? 1,
       status: map['status'] ?? 'pending',
       totalPrice: (map['totalPrice'] ?? 0.0).toDouble(),
       notes: map['notes'],

@@ -137,6 +137,13 @@ class _BookingList extends StatelessWidget {
                         booking.timeSlot,
                         style: GoogleFonts.inter(color: Colors.white70, fontSize: 13),
                       ),
+                      const SizedBox(width: 16),
+                      const Icon(Icons.people_outline, color: Colors.white70, size: 14),
+                      const SizedBox(width: 4),
+                      Text(
+                        '${booking.numberOfPeople} ${booking.numberOfPeople == 1 ? "Person" : "People"}',
+                        style: GoogleFonts.inter(color: Colors.white70, fontSize: 13),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 12),

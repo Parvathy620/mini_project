@@ -6,17 +6,21 @@ import '../../../core/services/pdf_service.dart';
 import '../../../core/widgets/luxury_glass.dart';
 
 class BookingReceiptDialog extends StatelessWidget {
-  final BookingModel booking;
+  final List<BookingModel> bookings;
   final VoidCallback onClose;
 
   const BookingReceiptDialog({
     super.key,
-    required this.booking,
+    required this.bookings,
     required this.onClose,
   });
 
   @override
   Widget build(BuildContext context) {
+    final firstBooking = bookings.first;
+    final aggregatedPrice = bookings.fold<double>(0, (sum, b) => sum + b.totalPrice);
+    final datesFormatted = bookings.map((b) => DateFormat('MMM dd').format(b.bookingDate)).join(', ');
+
     return Dialog(
       backgroundColor: Colors.transparent,
       elevation: 0,
@@ -70,17 +74,19 @@ class BookingReceiptDialog extends StatelessWidget {
                       ),
                       child: Column(
                         children: [
-                          _buildRow('Booking ID', '#${booking.id.substring(0, 8)}'),
+                          _buildRow('Booking ID', '#${firstBooking.id.substring(0, 8)}'),
                           const Divider(color: Colors.white10),
-                          _buildRow('Provider', booking.providerName),
+                          _buildRow('Provider', firstBooking.providerName),
                           const Divider(color: Colors.white10),
-                          _buildRow('Service', booking.serviceName),
+                          _buildRow('Service', firstBooking.serviceName),
                           const Divider(color: Colors.white10),
-                          _buildRow('Date', DateFormat('MMM dd, yyyy').format(booking.bookingDate)),
+                          _buildRow('Date(s)', datesFormatted),
                           const Divider(color: Colors.white10),
-                          _buildRow('Time', booking.timeSlot),
+                          _buildRow('Time', firstBooking.timeSlot),
                           const Divider(color: Colors.white10),
-                          _buildRow('Total Price', '\₹${booking.totalPrice.toStringAsFixed(2)}', isBold: true),
+                          _buildRow('Number of People', '${firstBooking.numberOfPeople}', isBold: false),
+                          const Divider(color: Colors.white10),
+                          _buildRow('Total Price', '\₹${aggregatedPrice.toStringAsFixed(2)}', isBold: true),
                         ],
                       ),
                     ),
@@ -114,7 +120,7 @@ class BookingReceiptDialog extends StatelessWidget {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(content: Text('Generating Receipt...')),
                                 );
-                                await PdfService().generateAndDownloadReceipt(booking);
+                                await PdfService().generateAndDownloadReceipt(bookings);
                               } catch (e) {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(content: Text('Error generating PDF: $e'), backgroundColor: Colors.red),

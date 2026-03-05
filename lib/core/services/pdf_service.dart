@@ -10,8 +10,13 @@ import '../models/booking_model.dart';
 import 'package:flutter/foundation.dart';
 
 class PdfService {
-  Future<void> generateAndDownloadReceipt(BookingModel booking) async {
+  Future<void> generateAndDownloadReceipt(List<BookingModel> bookings) async {
     final pdf = pw.Document();
+
+    if (bookings.isEmpty) return;
+    final firstBooking = bookings.first;
+    final aggregatedPrice = bookings.fold<double>(0, (sum, b) => sum + b.totalPrice);
+    final datesFormatted = bookings.map((b) => DateFormat('MMM dd').format(b.bookingDate)).join(', ');
 
     final logoImage = await imageFromAssetBundle('assets/images/travel_app_image.png');
     
@@ -88,20 +93,20 @@ class PdfService {
                             crossAxisAlignment: pw.CrossAxisAlignment.start,
                             children: [
                               pw.Text('BOOKING ID', style: pw.TextStyle(color: PdfColors.grey600, fontSize: 10, letterSpacing: 1)),
-                              pw.Text('#${booking.id.toUpperCase().substring(0, 8)}', style: pw.TextStyle(color: primaryColor, fontSize: 18, fontWeight: pw.FontWeight.bold)),
+                              pw.Text('#${firstBooking.id.toUpperCase().substring(0, 8)}', style: pw.TextStyle(color: primaryColor, fontSize: 18, fontWeight: pw.FontWeight.bold)),
                             ],
                           ),
                           pw.Container(
                             padding: const pw.EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                             decoration: pw.BoxDecoration(
-                              color: booking.status == 'approved' ? PdfColors.green50 : PdfColors.orange50,
+                              color: firstBooking.status == 'approved' ? PdfColors.green50 : PdfColors.orange50,
                               borderRadius: pw.BorderRadius.circular(20),
-                              border: pw.Border.all(color: booking.status == 'approved' ? PdfColors.green : PdfColors.orange),
+                              border: pw.Border.all(color: firstBooking.status == 'approved' ? PdfColors.green : PdfColors.orange),
                             ),
                             child: pw.Text(
-                              booking.status.toUpperCase(),
+                              firstBooking.status.toUpperCase(),
                               style: pw.TextStyle(
-                                color: booking.status == 'approved' ? PdfColors.green700 : PdfColors.orange700,
+                                color: firstBooking.status == 'approved' ? PdfColors.green700 : PdfColors.orange700,
                                 fontWeight: pw.FontWeight.bold,
                                 fontSize: 12,
                               ),
@@ -127,14 +132,14 @@ class PdfService {
                         ),
                         child: pw.Column(
                           children: [
-                             _buildDetailRow('Service Provider', booking.providerName),
+                             _buildDetailRow('Service Provider', firstBooking.providerName),
                              pw.SizedBox(height: 10),
-                             _buildDetailRow('Service Category', booking.serviceName, isHighlight: true),
+                             _buildDetailRow('Service Category', firstBooking.serviceName, isHighlight: true),
                              pw.SizedBox(height: 10),
                              pw.Row(
                                children: [
-                                 pw.Expanded(child: _buildInfoBlock('Date', DateFormat('MMM dd, yyyy').format(booking.bookingDate))),
-                                 pw.Expanded(child: _buildInfoBlock('Time Slot', booking.timeSlot)),
+                                 pw.Expanded(child: _buildInfoBlock('Date(s)', datesFormatted)),
+                                 pw.Expanded(child: _buildInfoBlock('Time Slot', firstBooking.timeSlot)),
                                ]
                              ),
                           ],
@@ -148,7 +153,8 @@ class PdfService {
                       pw.SizedBox(height: 15),
                       pw.Row(
                         children: [
-                           pw.Expanded(child: _buildInfoBlock('Guest Name', booking.touristName)),
+                           pw.Expanded(child: _buildInfoBlock('Guest Name', firstBooking.touristName)),
+                           pw.Expanded(child: _buildInfoBlock('Guest Count', '${firstBooking.numberOfPeople} ${firstBooking.numberOfPeople == 1 ? "Person" : "People"}')),
                         ]
                       ),
 
@@ -167,7 +173,7 @@ class PdfService {
                             pw.Text('TOTAL PAID', style: pw.TextStyle(color: white, fontSize: 14)),
                             // The Rupee symbol will now render correctly with NotoSans
                             pw.Text(
-                              '₹${booking.totalPrice.toStringAsFixed(2)}', 
+                              '₹${aggregatedPrice.toStringAsFixed(2)}', 
                               style: pw.TextStyle(color: accentColor, fontSize: 24, fontWeight: pw.FontWeight.bold),
                             ),
                           ],
@@ -195,7 +201,7 @@ class PdfService {
     try {
       final bytes = await pdf.save();
       final dir = await getApplicationDocumentsDirectory();
-      final file = File('${dir.path}/receipt_${booking.id}.pdf');
+      final file = File('${dir.path}/receipt_${firstBooking.id}.pdf');
       
       await file.writeAsBytes(bytes);
       

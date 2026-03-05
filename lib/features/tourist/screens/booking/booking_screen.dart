@@ -26,9 +26,10 @@ class BookingScreen extends StatefulWidget {
 
 class _BookingScreenState extends State<BookingScreen> {
   DateTime _focusedDay = DateTime.now();
-  DateTime? _selectedDay;
+  final Set<DateTime> _selectedDays = {};
   String? _selectedSlot;
   String? _selectedService;
+  int _numberOfPeople = 1;
   bool _isLoading = false;
 
   AvailabilityModel? _availability;
@@ -67,18 +68,34 @@ class _BookingScreenState extends State<BookingScreen> {
   }
 
   void _onDaySelected(DateTime selectedDay, DateTime focusedDay) {
-    if (!isSameDay(_selectedDay, selectedDay)) {
-      setState(() {
-        _selectedDay = selectedDay;
-        _focusedDay = focusedDay;
-        _selectedSlot = null;
-        _slots = _generateSlotsForDay(selectedDay);
-      });
-    }
+    setState(() {
+      _focusedDay = focusedDay;
+      
+      // Toggle selection
+      if (_selectedDays.any((d) => isSameDay(d, selectedDay))) {
+        _selectedDays.removeWhere((d) => isSameDay(d, selectedDay));
+      } else {
+        _selectedDays.add(selectedDay);
+      }
+      
+      _selectedSlot = null; // Reset slot when days change
+      
+      if (_selectedDays.isEmpty) {
+        _slots = [];
+      } else {
+        // Calculate intersection of slots for all selected days
+        List<String> commonSlots = _generateSlotsForDay(_selectedDays.first);
+        for (final day in _selectedDays.skip(1)) {
+           final daySlots = _generateSlotsForDay(day);
+           commonSlots.retainWhere((slot) => daySlots.contains(slot));
+        }
+        _slots = commonSlots;
+      }
+    });
   }
 
   Future<void> _processBooking() async {
-    if (_selectedDay == null || _selectedSlot == null) return;
+    if (_selectedDays.isEmpty || _selectedSlot == null) return;
     
     final finalServiceName = _selectedService ?? (widget.provider.services.isNotEmpty ? widget.provider.services.first : 'General Entry');
 
@@ -87,29 +104,42 @@ class _BookingScreenState extends State<BookingScreen> {
       final user = Provider.of<AuthService>(context, listen: false).currentUser;
       if (user == null) throw Exception('Login required');
 
-      final booking = BookingModel(
-        id: Provider.of<BookingService>(context, listen: false).generateId(),
-        touristId: user.uid,
-        touristName: user.displayName ?? user.email?.split('@')[0] ?? 'Tourist',
-        providerId: widget.provider.uid,
-        providerName: widget.provider.name,
-        serviceName: finalServiceName,
-        bookingDate: _selectedDay!,
-        timeSlot: _selectedSlot!,
-        totalPrice: widget.provider.price > 0 ? widget.provider.price : 100.0,
-        status: 'pending',
-        createdAt: DateTime.now(),
-      );
+      // Create a separate booking for each selected day
+      List<BookingModel> bookings = [];
+      for (final selectedDay in _selectedDays) {
+        final booking = BookingModel(
+          id: Provider.of<BookingService>(context, listen: false).generateId(),
+          touristId: user.uid,
+          touristName: user.displayName ?? user.email?.split('@')[0] ?? 'Tourist',
+          providerId: widget.provider.uid,
+          providerName: widget.provider.name,
+          serviceName: finalServiceName,
+          bookingDate: selectedDay,
+          timeSlot: _selectedSlot!,
+          numberOfPeople: _numberOfPeople,
+          totalPrice: widget.provider.price > 0 ? widget.provider.price * _numberOfPeople : 100.0 * _numberOfPeople,
+          status: 'pending',
+          createdAt: DateTime.now(),
+        );
+        bookings.add(booking);
+      }
 
-      await Provider.of<BookingService>(context, listen: false).createBookingRequest(booking);
+      // Save all bookings
+      for(final booking in bookings){
+        await Provider.of<BookingService>(context, listen: false).createBookingRequest(booking);
+      }
 
       if (mounted) {
         setState(() => _isLoading = false);
+        // Clean up state
+        _selectedDays.clear();
+        _selectedSlot = null;
+        
         showDialog(
           context: context,
           barrierDismissible: false,
           builder: (context) => BookingReceiptDialog(
-            booking: booking,
+            bookings: bookings,
             onClose: () {
               Navigator.pop(context); 
               Navigator.pop(context); 
@@ -238,6 +268,41 @@ class _BookingScreenState extends State<BookingScreen> {
                               ),
                             ),
                           ),
+                          const SizedBox(height: 16),
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text('Number of People', style: GoogleFonts.outfit(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600)),
+                          ),
+                          const SizedBox(height: 12),
+                          LuxuryGlass(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            borderRadius: BorderRadius.circular(16),
+                            color: const Color(0xFF69F0AE).withOpacity(0.1),
+                            border: Border.all(color: const Color(0xFF69F0AE).withOpacity(0.3)),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                IconButton(
+                                  icon: const Icon(Icons.remove, color: Colors.white),
+                                  onPressed: () {
+                                    if (_numberOfPeople > 1) {
+                                      setState(() => _numberOfPeople--);
+                                    }
+                                  },
+                                ),
+                                Text(
+                                  '$_numberOfPeople',
+                                  style: GoogleFonts.outfit(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.add, color: Colors.white),
+                                  onPressed: () {
+                                    setState(() => _numberOfPeople++);
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
                           const SizedBox(height: 24),
                         ],
                       );
@@ -258,7 +323,7 @@ class _BookingScreenState extends State<BookingScreen> {
                       lastDay: DateTime.now().add(const Duration(days: 90)),
                       availableGestures: AvailableGestures.horizontalSwipe, // Allow vertical scrolling on page
                       focusedDay: _focusedDay,
-                      selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
+                      selectedDayPredicate: (day) => _selectedDays.any((selected) => isSameDay(selected, day)),
                       onDaySelected: _onDaySelected,
                       calendarStyle: CalendarStyle(
                         defaultTextStyle: GoogleFonts.inter(color: Colors.white),
@@ -281,7 +346,7 @@ class _BookingScreenState extends State<BookingScreen> {
               ),
 
               // 4. Slots Grid (Wrapped in SliverPadding + SliverGrid)
-              if (_selectedDay != null) ...[
+              if (_selectedDays.isNotEmpty) ...[
                 SliverPadding(
                   padding: const EdgeInsets.all(20),
                   sliver: SliverToBoxAdapter(
@@ -339,14 +404,14 @@ class _BookingScreenState extends State<BookingScreen> {
                  SliverToBoxAdapter(
                    child: Padding(
                      padding: const EdgeInsets.only(top: 40, left: 20, right: 20),
-                     child: Center(child: Text('Select a date to view slots', style: GoogleFonts.inter(color: Colors.white24))),
+                     child: Center(child: Text('Select one or more dates to view common slots', style: GoogleFonts.inter(color: Colors.white24), textAlign: TextAlign.center)),
                    ),
                  ),
             ],
           ),
         ),
       ),
-      bottomNavigationBar: _selectedDay != null && _selectedSlot != null
+      bottomNavigationBar: _selectedDays.isNotEmpty && _selectedSlot != null
         ? Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
