@@ -22,6 +22,7 @@ import '../../common/screens/settings_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../core/models/tourist_model.dart';
+import 'destination_details_screen.dart';
 
 class TouristDashboardScreen extends StatefulWidget {
   const TouristDashboardScreen({super.key});
@@ -575,7 +576,7 @@ class _ExploreTabState extends State<_ExploreTab> {
   Widget _buildDestinationCard(BuildContext context, DestinationModel destination, List<String> wishlist) {
     final isWishlisted = wishlist.contains(destination.id);
     return GestureDetector(
-      onTap: () => _navigateToProviderSearch(context, destination),
+      onTap: () => _navigateToDestinationDetails(context, destination),
       child: Hero(
         tag: 'destination_card_${destination.id}',
         child: LuxuryGlass(
@@ -696,7 +697,7 @@ class _ExploreTabState extends State<_ExploreTab> {
   Widget _buildDestinationListItem(BuildContext context, DestinationModel destination, List<String> wishlist) {
     final isWishlisted = wishlist.contains(destination.id);
     return GestureDetector(
-      onTap: () => _navigateToProviderSearch(context, destination),
+      onTap: () => _navigateToDestinationDetails(context, destination),
       child: Hero(
         tag: 'destination_list_${destination.id}',
         child: Container(
@@ -810,13 +811,12 @@ class _ExploreTabState extends State<_ExploreTab> {
   );
   }
 
-  void _navigateToProviderSearch(BuildContext context, DestinationModel destination) {
+  void _navigateToDestinationDetails(BuildContext context, DestinationModel destination) {
     Navigator.push(
       context, 
       PageRouteBuilder(
-        pageBuilder: (context, animation, secondaryAnimation) => ProviderSearchScreen(
-          destinationId: destination.id, 
-          destinationName: destination.name
+        pageBuilder: (context, animation, secondaryAnimation) => DestinationDetailsScreen(
+          destination: destination,
         ),
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
           return FadeTransition(opacity: animation, child: child);
