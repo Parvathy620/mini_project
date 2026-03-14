@@ -13,7 +13,7 @@ class AdminService {
     });
   }
 
-  Future<void> addDestination(String name, String description, String district, String googleDriveImageUrl, {bool isAvailable = true}) async {
+  Future<void> addDestination(String name, String description, String district, String googleDriveImageUrl, {bool isAvailable = true, double latitude = 0.0, double longitude = 0.0}) async {
     await _firestore.collection('destinations').add({
       'name': name,
       'description': description,
@@ -22,16 +22,20 @@ class AdminService {
       'imageUrl': '', // Default empty if not used
       'isAvailable': isAvailable,
       'rating': 4.5, // Default rating
+      'latitude': latitude,
+      'longitude': longitude,
     });
   }
 
-  Future<void> updateDestination(String id, String name, String description, String district, String googleDriveImageUrl, {bool isAvailable = true}) async {
+  Future<void> updateDestination(String id, String name, String description, String district, String googleDriveImageUrl, {bool isAvailable = true, double latitude = 0.0, double longitude = 0.0}) async {
     await _firestore.collection('destinations').doc(id).update({
       'name': name,
       'description': description,
       'district': district,
       'googleDriveImageUrl': googleDriveImageUrl,
       'isAvailable': isAvailable,
+      'latitude': latitude,
+      'longitude': longitude,
     });
   }
 

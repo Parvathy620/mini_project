@@ -231,6 +231,8 @@ class _DestinationListScreenState extends State<DestinationListScreen> {
                                             currentDistrict: dest.district,
                                             currentDriveLink: dest.googleDriveImageUrl,
                                             isAvailable: dest.isAvailable,
+                                            currentLatitude: dest.latitude,
+                                            currentLongitude: dest.longitude,
                                           )
                                         ),
                                       );

@@ -8,23 +8,87 @@ import '../../../core/widgets/safe_network_image.dart';
 import 'provider_search_screen.dart';
 import '../../../core/widgets/star_rating.dart';
 import '../../reviews/screens/reviews_screen.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
+import 'package:geolocator/geolocator.dart';
+import 'navigation_map_screen.dart';
 
-class DestinationDetailsScreen extends StatelessWidget {
+class DestinationDetailsScreen extends StatefulWidget {
   final DestinationModel destination;
 
   const DestinationDetailsScreen({super.key, required this.destination});
+
+  @override
+  State<DestinationDetailsScreen> createState() => _DestinationDetailsScreenState();
+}
+
+class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
+  double? _distance;
+  bool _isLoadingDistance = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _calculateDistance();
+  }
+
+  Future<void> _calculateDistance() async {
+    try {
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        setState(() => _isLoadingDistance = false);
+        return;
+      }
+
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          setState(() => _isLoadingDistance = false);
+          return;
+        }
+      }
+
+      Position position = await Geolocator.getCurrentPosition();
+      
+      final double dist = Geolocator.distanceBetween(
+        position.latitude,
+        position.longitude,
+        widget.destination.latitude,
+        widget.destination.longitude,
+      );
+
+      setState(() {
+        _distance = dist / 1000; // Convert to km
+        _isLoadingDistance = false;
+      });
+    } catch (e) {
+      setState(() => _isLoadingDistance = false);
+    }
+  }
 
   void _navigateToProviderSearch(BuildContext context) {
     Navigator.push(
       context,
       PageRouteBuilder(
         pageBuilder: (context, animation, secondaryAnimation) => ProviderSearchScreen(
-          destinationId: destination.id,
-          destinationName: destination.name,
+          destinationId: widget.destination.id,
+          destinationName: widget.destination.name,
         ),
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
           return FadeTransition(opacity: animation, child: child);
         },
+      ),
+    );
+  }
+
+  void _navigateToNavigation(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => NavigationMapScreen(
+          destination: widget.destination,
+        ),
       ),
     );
   }
@@ -57,14 +121,14 @@ class DestinationDetailsScreen extends StatelessWidget {
                   maxHeight: MediaQuery.of(context).size.height * 0.45,
                   minHeight: 100,
                   child: Hero(
-                    tag: 'destination_detail_${destination.id}',
+                    tag: 'destination_detail_${widget.destination.id}',
                     child: Stack(
                       fit: StackFit.expand,
                       children: [
                         SafeNetworkImage(
-                          imageUrl: destination.googleDriveImageUrl.isNotEmpty
-                              ? destination.googleDriveImageUrl
-                              : destination.imageUrl,
+                          imageUrl: widget.destination.googleDriveImageUrl.isNotEmpty
+                              ? widget.destination.googleDriveImageUrl
+                              : widget.destination.imageUrl,
                           fit: BoxFit.cover,
                           fallback: Container(
                             color: Colors.white10,
@@ -101,16 +165,16 @@ class DestinationDetailsScreen extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
-                          color: destination.isAvailable
+                          color: widget.destination.isAvailable
                               ? Colors.green.withOpacity(0.2)
                               : Colors.red.withOpacity(0.2),
                           border: Border.all(
-                            color: destination.isAvailable ? Colors.green : Colors.red,
+                            color: widget.destination.isAvailable ? Colors.green : Colors.red,
                           ),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
-                          destination.isAvailable ? 'AVAILABLE' : 'CURRENTLY CLOSED',
+                          widget.destination.isAvailable ? 'AVAILABLE' : 'CURRENTLY CLOSED',
                           style: GoogleFonts.inter(
                             fontSize: 10,
                             fontWeight: FontWeight.bold,
@@ -122,7 +186,7 @@ class DestinationDetailsScreen extends StatelessWidget {
                       
                       // Title & District
                       Text(
-                        destination.name,
+                        widget.destination.name,
                         style: GoogleFonts.outfit(
                           fontSize: 36,
                           fontWeight: FontWeight.bold,
@@ -136,7 +200,7 @@ class DestinationDetailsScreen extends StatelessWidget {
                           const Icon(Icons.location_on, color: Color(0xFF69F0AE), size: 18),
                           const SizedBox(width: 4),
                           Text(
-                            destination.district,
+                            widget.destination.district,
                             style: GoogleFonts.inter(
                               fontSize: 16,
                               color: const Color(0xFF69F0AE),
@@ -146,7 +210,7 @@ class DestinationDetailsScreen extends StatelessWidget {
                           const Icon(Icons.category_outlined, color: Colors.white54, size: 16),
                           const SizedBox(width: 4),
                           Text(
-                            destination.category,
+                            widget.destination.category,
                             style: GoogleFonts.inter(
                               fontSize: 14,
                               color: Colors.white70,
@@ -164,9 +228,9 @@ class DestinationDetailsScreen extends StatelessWidget {
                             context,
                             MaterialPageRoute(
                               builder: (_) => ReviewsScreen(
-                                targetId: destination.id,
+                                targetId: widget.destination.id,
                                 targetType: 'destination',
-                                targetName: destination.name,
+                                targetName: widget.destination.name,
                               ),
                             ),
                           );
@@ -182,7 +246,7 @@ class DestinationDetailsScreen extends StatelessWidget {
                           child: Row(
                             children: [
                               Text(
-                                destination.rating.toStringAsFixed(1),
+                                widget.destination.rating.toStringAsFixed(1),
                                 style: GoogleFonts.outfit(
                                   fontSize: 24,
                                   fontWeight: FontWeight.bold,
@@ -194,7 +258,7 @@ class DestinationDetailsScreen extends StatelessWidget {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    StarRating(rating: destination.rating, size: 16),
+                                    StarRating(rating: widget.destination.rating, size: 16),
                                     const SizedBox(height: 4),
                                     Text(
                                       'Tap to read or write reviews',
@@ -215,7 +279,7 @@ class DestinationDetailsScreen extends StatelessWidget {
                       const SizedBox(height: 32),
                       
                       // Description Section
-                      if (destination.description.isNotEmpty) ...[
+                      if (widget.destination.description.isNotEmpty) ...[
                         Text(
                           'About this Destination',
                           style: GoogleFonts.outfit(
@@ -231,7 +295,7 @@ class DestinationDetailsScreen extends StatelessWidget {
                           opacity: 0.1,
                           borderRadius: BorderRadius.circular(16),
                           child: Text(
-                            destination.description,
+                            widget.destination.description,
                             style: GoogleFonts.inter(
                               fontSize: 15,
                               color: Colors.white.withOpacity(0.85),
@@ -260,6 +324,114 @@ class DestinationDetailsScreen extends StatelessWidget {
                           ),
                         ),
                       ],
+                    ],
+                  ),
+                ),
+              ),
+              
+              // Location & Directions Section
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: 32),
+                      Text(
+                        'Location & Directions',
+                        style: GoogleFonts.outfit(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      LuxuryGlass(
+                        padding: EdgeInsets.zero,
+                        borderRadius: BorderRadius.circular(20),
+                        opacity: 0.1,
+                        child: Column(
+                          children: [
+                            SizedBox(
+                              height: 200,
+                              child: ClipRRect(
+                                borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                                child: FlutterMap(
+                                  options: MapOptions(
+                                    initialCenter: LatLng(widget.destination.latitude, widget.destination.longitude),
+                                    initialZoom: 13.0,
+                                    interactionOptions: const InteractionOptions(
+                                      flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
+                                    ),
+                                  ),
+                                  children: [
+                                    TileLayer(
+                                      urlTemplate: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+                                      userAgentPackageName: 'com.example.tourism_app',
+                                    ),
+                                    MarkerLayer(
+                                      markers: [
+                                        Marker(
+                                          point: LatLng(widget.destination.latitude, widget.destination.longitude),
+                                          width: 80,
+                                          height: 80,
+                                          child: const Icon(Icons.location_on, color: Colors.red, size: 40),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.all(20),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'Distance from you',
+                                          style: GoogleFonts.inter(fontSize: 12, color: Colors.white54),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        _isLoadingDistance
+                                          ? const SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF69F0AE)))
+                                          : Text(
+                                              (_distance != null && widget.destination.latitude != 0) 
+                                                ? '${_distance!.toStringAsFixed(1)} km' 
+                                                : 'Coordinates missing',
+                                              style: GoogleFonts.inter(
+                                                fontSize: 18,
+                                                fontWeight: FontWeight.bold,
+                                                color: (_distance != null && widget.destination.latitude != 0) 
+                                                  ? const Color(0xFF69F0AE) 
+                                                  : Colors.white24,
+                                              ),
+                                            ),
+                                      ],
+                                    ),
+                                  ),
+                                  ElevatedButton(
+                                    onPressed: () => _navigateToNavigation(context),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.white.withOpacity(0.1),
+                                      foregroundColor: Colors.white,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                        side: const BorderSide(color: Colors.white24),
+                                      ),
+                                    ),
+                                    child: const Text('Get Directions'),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 100), // Bottom padding
                     ],
                   ),
                 ),

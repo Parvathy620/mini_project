@@ -3,13 +3,13 @@ class DestinationModel {
   final String name;
   final String description;
   final String imageUrl;
-  final String googleDriveImageUrl; // Added for Drive Link
-
-
+  final String googleDriveImageUrl;
   final String district;
   final String category;
   final double rating;
   final bool isAvailable;
+  final double latitude;
+  final double longitude;
 
   DestinationModel({
     required this.id,
@@ -17,11 +17,12 @@ class DestinationModel {
     this.description = '',
     this.imageUrl = '',
     this.googleDriveImageUrl = '',
-
     this.district = '',
     this.category = 'Tourist Place',
     this.rating = 4.5,
     this.isAvailable = true,
+    this.latitude = 0.0,
+    this.longitude = 0.0,
   });
 
   factory DestinationModel.fromMap(Map<String, dynamic> data, String id) {
@@ -31,11 +32,12 @@ class DestinationModel {
       description: data['description'] ?? '',
       imageUrl: data['imageUrl'] ?? '',
       googleDriveImageUrl: data['googleDriveImageUrl'] ?? '',
-
       district: data['district'] ?? '',
       category: data['category'] ?? 'Tourist Place',
       rating: (data['rating'] ?? 4.5).toDouble(),
       isAvailable: data['isAvailable'] ?? true,
+      latitude: (data['latitude'] ?? 0.0).toDouble(),
+      longitude: (data['longitude'] ?? 0.0).toDouble(),
     );
   }
 
@@ -45,11 +47,12 @@ class DestinationModel {
       'description': description,
       'imageUrl': imageUrl,
       'googleDriveImageUrl': googleDriveImageUrl,
-
       'district': district,
       'category': category,
       'rating': rating,
       'isAvailable': isAvailable,
+      'latitude': latitude,
+      'longitude': longitude,
     };
   }
 }

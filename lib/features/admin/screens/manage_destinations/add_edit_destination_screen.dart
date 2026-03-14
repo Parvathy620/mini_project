@@ -5,6 +5,8 @@ import '../../../../core/services/admin_service.dart';
 import '../../../../core/services/drive_service.dart'; // Added
 import '../../../../core/widgets/glass_container.dart';
 import '../../../../core/widgets/app_background.dart';
+import '../../../../core/widgets/map_picker_screen.dart'; // Added
+import 'package:latlong2/latlong.dart'; // Added
 
 class AddEditDestinationScreen extends StatefulWidget {
   final String? destinationId;
@@ -12,7 +14,9 @@ class AddEditDestinationScreen extends StatefulWidget {
   final String? currentDescription;
   final String? currentDistrict;
   final String? currentDriveLink; 
-  final bool? isAvailable; // Added
+  final bool? isAvailable;
+  final double? currentLatitude;
+  final double? currentLongitude;
 
   const AddEditDestinationScreen({
     super.key, 
@@ -22,6 +26,8 @@ class AddEditDestinationScreen extends StatefulWidget {
     this.currentDistrict,
     this.currentDriveLink,
     this.isAvailable,
+    this.currentLatitude,
+    this.currentLongitude,
   });
 
   @override
@@ -33,6 +39,8 @@ class _AddEditDestinationScreenState extends State<AddEditDestinationScreen> {
   final _nameController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _driveLinkController = TextEditingController();
+  final _latController = TextEditingController();
+  final _lngController = TextEditingController();
   String? _selectedDistrict;
   bool _isLoading = false;
   String? _previewImageUrl;
@@ -63,6 +71,8 @@ class _AddEditDestinationScreenState extends State<AddEditDestinationScreen> {
     if (widget.isAvailable != null) {
       _isAvailable = widget.isAvailable!;
     }
+    _latController.text = (widget.currentLatitude ?? 0.0).toString();
+    _lngController.text = (widget.currentLongitude ?? 0.0).toString();
     _driveLinkController.addListener(_onDriveLinkChanged);
   }
 
@@ -84,6 +94,8 @@ class _AddEditDestinationScreenState extends State<AddEditDestinationScreen> {
     _nameController.dispose();
     _descriptionController.dispose();
     _driveLinkController.dispose();
+    _latController.dispose();
+    _lngController.dispose();
     super.dispose();
   }
 
@@ -100,6 +112,8 @@ class _AddEditDestinationScreenState extends State<AddEditDestinationScreen> {
               _selectedDistrict!,
               _previewImageUrl ?? '', 
               isAvailable: _isAvailable,
+              latitude: double.tryParse(_latController.text.trim()) ?? 0.0,
+              longitude: double.tryParse(_lngController.text.trim()) ?? 0.0,
             );
           } else {
             await adminService.updateDestination(
@@ -109,6 +123,8 @@ class _AddEditDestinationScreenState extends State<AddEditDestinationScreen> {
               _selectedDistrict!,
               _previewImageUrl ?? '',
               isAvailable: _isAvailable,
+              latitude: double.tryParse(_latController.text.trim()) ?? 0.0,
+              longitude: double.tryParse(_lngController.text.trim()) ?? 0.0,
             );
           }
         if (mounted) {
@@ -224,6 +240,59 @@ class _AddEditDestinationScreenState extends State<AddEditDestinationScreen> {
                       style: const TextStyle(color: Colors.white),
                       decoration: _buildInputDecoration('Description', Icons.description),
                       maxLines: 3,
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            controller: _latController,
+                            style: const TextStyle(color: Colors.white),
+                            decoration: _buildInputDecoration('Latitude', Icons.location_on),
+                            keyboardType: TextInputType.number,
+                            validator: (v) => v!.isEmpty ? 'Required' : null,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: TextFormField(
+                            controller: _lngController,
+                            style: const TextStyle(color: Colors.white),
+                            decoration: _buildInputDecoration('Longitude', Icons.location_on),
+                            keyboardType: TextInputType.number,
+                            validator: (v) => v!.isEmpty ? 'Required' : null,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        IconButton.filled(
+                          onPressed: () async {
+                            final LatLng? result = await Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => MapPickerScreen(
+                                  initialLocation: LatLng(
+                                    double.tryParse(_latController.text) ?? 10.8505,
+                                    double.tryParse(_lngController.text) ?? 76.2711,
+                                  ),
+                                ),
+                              ),
+                            );
+                            if (result != null) {
+                              setState(() {
+                                _latController.text = result.latitude.toStringAsFixed(6);
+                                _lngController.text = result.longitude.toStringAsFixed(6);
+                              });
+                            }
+                          },
+                          icon: const Icon(Icons.map),
+                          style: IconButton.styleFrom(
+                            backgroundColor: Colors.white10,
+                            foregroundColor: const Color(0xFF69F0AE),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            padding: const EdgeInsets.all(12),
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 16),
                     GlassContainer(
