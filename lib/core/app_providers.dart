@@ -9,6 +9,8 @@ import 'services/enquiry_service.dart';
 import 'services/booking_service.dart';
 import 'services/availability_service.dart';
 import 'services/notification_service.dart';
+import 'services/review_service.dart';
+import 'services/issue_service.dart';
 
 List<SingleChildWidget> getAppProviders() {
   return [
@@ -20,6 +22,18 @@ List<SingleChildWidget> getAppProviders() {
     Provider<EnquiryService>(create: (_) => EnquiryService()),
     Provider<BookingService>(create: (_) => BookingService()),
     Provider<AvailabilityService>(create: (_) => AvailabilityService()),
-    Provider<NotificationService>(create: (_) => NotificationService()),
+    ChangeNotifierProxyProvider<AuthService, NotificationService>(
+      create: (_) => NotificationService(),
+      update: (_, auth, notif) {
+        if (auth.currentUser != null) {
+          notif?.initializeForUser(auth.currentUser!.uid);
+        } else {
+          notif?.clearUserData();
+        }
+        return notif!;
+      },
+    ),
+    Provider<ReviewService>(create: (_) => ReviewService()),
+    ChangeNotifierProvider<IssueService>(create: (_) => IssueService()),
   ];
 }

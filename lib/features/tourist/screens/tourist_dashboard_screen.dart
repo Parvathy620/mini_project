@@ -19,6 +19,7 @@ import '../../common/screens/booking_list_screen.dart';
 import '../../common/screens/enquiry_list_screen.dart';
 import '../../common/screens/notification_list_screen.dart';
 import '../../common/screens/settings_screen.dart';
+import '../../../core/widgets/notification_bell.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../core/models/tourist_model.dart';
@@ -339,15 +340,7 @@ class _ExploreTabState extends State<_ExploreTab> {
           surfaceTintColor: Colors.transparent,
           scrolledUnderElevation: 0,
           elevation: 0,
-          leading: IconButton(
-            icon: const Icon(Icons.notifications_outlined, color: Colors.white), 
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const NotificationListScreen()),
-              );
-            }, 
-          ),
+          leading: const NotificationBell(),
           actions: [
             IconButton(
               icon: Icon(

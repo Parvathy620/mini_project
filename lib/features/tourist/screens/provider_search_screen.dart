@@ -12,6 +12,7 @@ import '../../../core/widgets/safe_network_image.dart';
 import '../../../core/widgets/glass_filter_panel.dart';
 import '../widgets/enquiry_dialog.dart';
 import 'booking/booking_screen.dart';
+import '../../reviews/screens/reviews_screen.dart';
 
 class ProviderSearchScreen extends StatefulWidget {
   final String destinationId;
@@ -510,30 +511,38 @@ class _ProviderSearchScreenState extends State<ProviderSearchScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    // Price Section (Flexible)
-                    Expanded(
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.payments_outlined, size: 14, color: Colors.greenAccent.withOpacity(0.8)),
-                          const SizedBox(width: 4),
-                          Flexible(
-                            child: Text(
-                              provider.price > 0 ? '\$${provider.price.toStringAsFixed(0)}' : (provider.priceRange.isNotEmpty ? provider.priceRange : 'Ask for price'),
-                              style: GoogleFonts.inter(fontSize: 12, color: Colors.greenAccent.withOpacity(0.8)),
-                              overflow: TextOverflow.ellipsis,
-                              maxLines: 1,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                    // Price Section removed to fix overflow
+                    const Spacer(),
                     const SizedBox(width: 8),
                     
-                    // Action Buttons (Enquire & Book)
+                    // Action Buttons (Enquire & Book & Reviews)
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
+                        // Reviews Button
+                        GestureDetector(
+                          onTap: () {
+                             Navigator.push(
+                               context, 
+                               MaterialPageRoute(builder: (_) => ReviewsScreen(
+                                 targetId: provider.uid, 
+                                 targetType: 'service_provider', 
+                                 targetName: provider.name,
+                               ))
+                             );
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.1),
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Colors.white.withOpacity(0.2)),
+                            ),
+                            child: const Icon(Icons.star_outline_rounded, color: Colors.amber, size: 18),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+
                         // Enquire Button
                         GestureDetector(
                           onTap: () {

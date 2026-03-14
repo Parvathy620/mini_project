@@ -16,11 +16,12 @@ class EnquiryService {
       // Trigger Notification for Provider
       // Creating simple instance to avoid DI complexity here
       try {
-        await NotificationService().sendNotification(
+        await NotificationService().createInAppNotification(
           userId: enquiry.providerId,
           title: 'New Enquiry',
           body: 'You have a new enquiry from ${enquiry.touristName}',
           type: 'enquiry',
+          relatedId: enquiry.id,
         );
       } catch (_) {}
 
@@ -70,11 +71,12 @@ class EnquiryService {
 
       // Trigger Notification for Tourist
       try {
-         await NotificationService().sendNotification(
+         await NotificationService().createInAppNotification(
           userId: touristId,
           title: 'Enquiry Reply',
           body: 'A provider has replied to your enquiry.',
           type: 'enquiry',
+          relatedId: enquiryId,
         );
       } catch (_) {}
     } catch (e) {

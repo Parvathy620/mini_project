@@ -20,6 +20,7 @@ import 'features/tourist/screens/tourist_dashboard_screen.dart';
 import 'features/admin/screens/dashboard_screen.dart';
 
 // ...
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -60,6 +61,7 @@ class MyApp extends StatelessWidget {
       providers: getAppProviders(),
       child: MaterialApp(
         title: 'Navika',
+        navigatorKey: navigatorKey,
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
           useMaterial3: true,

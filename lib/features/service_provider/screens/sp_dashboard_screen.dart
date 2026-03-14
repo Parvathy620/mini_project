@@ -9,10 +9,9 @@ import '../../../core/widgets/glass_confirmation_dialog.dart';
 import '../../../core/widgets/app_background.dart';
 import '../../../core/services/verification_service.dart';
 import '../../../core/models/verification_model.dart';
-import '../../../core/models/notification_model.dart';
 import '../../../core/widgets/luxury_glass.dart';
+import '../../../core/widgets/notification_bell.dart';
 import '../../admin/widgets/glass_dashboard_tile.dart';
-import '../../common/screens/notification_list_screen.dart';
 import 'verification_submission_screen.dart';
 import '../../common/screens/unified_login_screen.dart';
 import 'sp_profile_screen.dart';
@@ -21,6 +20,7 @@ import '../widgets/verification_status_card.dart';
 import '../../common/screens/booking_list_screen.dart';
 import '../../common/screens/enquiry_list_screen.dart';
 import 'manage_availability_screen.dart';
+import 'sp_reviews_screen.dart'; // Added import for Reviews Screen
 
 class SPDashboardScreen extends StatefulWidget {
   const SPDashboardScreen({super.key});
@@ -39,7 +39,6 @@ class _SPDashboardScreenState extends State<SPDashboardScreen> {
     final user = Provider.of<AuthService>(context, listen: false).currentUser;
     if (user != null) {
       _providerStream = _firestore.collection('service_providers').doc(user.uid).snapshots();
-      // Lazy Trigger: Check my own expiry
       WidgetsBinding.instance.addPostFrameCallback((_) {
         Provider.of<VerificationService>(context, listen: false).checkProviderExpiry(user.uid);
       });
@@ -84,43 +83,9 @@ class _SPDashboardScreenState extends State<SPDashboardScreen> {
           fontSize: 16,
         ),
       ),
-      leading: StreamBuilder<List<AppNotification>>(
-        stream: Provider.of<VerificationService>(context, listen: false).getNotifications(Provider.of<AuthService>(context, listen: false).currentUser!.uid),
-        builder: (context, snapshot) {
-          final hasUnread = snapshot.data?.any((n) => !n.isRead) ?? false;
-          return Center(
-            child: GlassContainer(
-            padding: const EdgeInsets.all(8),
-            borderRadius: BorderRadius.circular(12),
-            blur: 5,
-            opacity: 0.1,
-            child: InkWell(
-              onTap: () {
-                 Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationListScreen()));
-              },
-              child: Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  const Icon(Icons.notifications, color: Colors.white, size: 20),
-                  if (hasUnread)
-                    Positioned(
-                      top: -2,
-                      right: -2,
-                      child: Container(
-                        width: 8,
-                        height: 8,
-                        decoration: const BoxDecoration(color: Colors.redAccent, shape: BoxShape.circle),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ),
-          );
-        }
-      ),
+      leading: const NotificationBell(),
       actions: [
-          Padding(
+        Padding(
           padding: const EdgeInsets.only(right: 8.0),
           child: Row(
             children: [
@@ -131,7 +96,7 @@ class _SPDashboardScreenState extends State<SPDashboardScreen> {
                 opacity: 0.1,
                 child: InkWell(
                   onTap: () {
-                     Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsScreen()));
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsScreen()));
                   },
                   child: const Icon(Icons.settings, color: Colors.white, size: 20),
                 ),
@@ -144,26 +109,26 @@ class _SPDashboardScreenState extends State<SPDashboardScreen> {
                 opacity: 0.1,
                 child: InkWell(
                   onTap: () async {
-                     final shouldLogout = await showDialog<bool>(
-                        context: context,
-                        builder: (c) => GlassConfirmationDialog(
-                          title: 'Confirm Logout',
-                          content: 'Are you sure you want to log out?',
-                          confirmText: 'Logout',
-                          confirmColor: Colors.redAccent,
-                          onConfirm: () => Navigator.pop(c, true),
-                        ),
-                     );
-                     
-                     if (shouldLogout == true && context.mounted) {
-                        await Provider.of<AuthService>(context, listen: false).signOut();
-                        if (context.mounted) {
-                           Navigator.of(context).pushAndRemoveUntil(
-                              MaterialPageRoute(builder: (_) => UnifiedLoginScreen()),
-                              (route) => false,
-                           );
-                        }
-                     }
+                    final shouldLogout = await showDialog<bool>(
+                      context: context,
+                      builder: (c) => GlassConfirmationDialog(
+                        title: 'Confirm Logout',
+                        content: 'Are you sure you want to log out?',
+                        confirmText: 'Logout',
+                        confirmColor: Colors.redAccent,
+                        onConfirm: () => Navigator.pop(c, true),
+                      ),
+                    );
+
+                    if (shouldLogout == true && context.mounted) {
+                      await Provider.of<AuthService>(context, listen: false).signOut();
+                      if (context.mounted) {
+                        Navigator.of(context).pushAndRemoveUntil(
+                          MaterialPageRoute(builder: (_) => UnifiedLoginScreen()),
+                          (route) => false,
+                        );
+                      }
+                    }
                   },
                   child: const Icon(Icons.logout, color: Colors.white, size: 20),
                 ),
@@ -184,185 +149,183 @@ class _SPDashboardScreenState extends State<SPDashboardScreen> {
       top: true,
       child: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // const SizedBox(height: 70), // Removed to move widgets top
-          GestureDetector(
-            onTap: () {
-               Navigator.push(context, MaterialPageRoute(builder: (_) => SPProfileScreen()));
-            },
-            child: LuxuryGlass(
-              padding: const EdgeInsets.all(20),
-              opacity: 0.15,
-              borderRadius: BorderRadius.circular(20),
-              child: Row(
-                children: [
-                  Container(
-                    width: 60,
-                    height: 60,
-                    decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.grey.withOpacity(0.1)),
-                    child: ClipOval(
-                      child: SafeNetworkImage(
-                        imageUrl: (data['googleDriveImageUrl'] != null && data['googleDriveImageUrl'].toString().isNotEmpty)
-                            ? data['googleDriveImageUrl']
-                            : data['profileImageUrl'],
-                        fit: BoxFit.cover,
-                        fallback: const Icon(Icons.person, color: Colors.white),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            GestureDetector(
+              onTap: () {
+                Navigator.push(context, MaterialPageRoute(builder: (_) => SPProfileScreen()));
+              },
+              child: LuxuryGlass(
+                padding: const EdgeInsets.all(20),
+                opacity: 0.15,
+                borderRadius: BorderRadius.circular(20),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 60,
+                      height: 60,
+                      decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.grey.withOpacity(0.1)),
+                      child: ClipOval(
+                        child: SafeNetworkImage(
+                          imageUrl: (data['googleDriveImageUrl'] != null && data['googleDriveImageUrl'].toString().isNotEmpty)
+                              ? data['googleDriveImageUrl']
+                              : data['profileImageUrl'],
+                          fit: BoxFit.cover,
+                          fallback: const Icon(Icons.person, color: Colors.white),
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 20),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(data['name'] ?? 'Provider', style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-                        const SizedBox(height: 5),
-                        // Simple Status Badge (Detailed info in card below)
-                        StreamBuilder<ProviderVerification?>(
-                          stream: verificationService.getVerificationStream(uid),
-                          builder: (context, snapshot) {
-                             if (snapshot.connectionState == ConnectionState.waiting) {
-                               return const SizedBox(
-                                 height: 16, 
-                                 width: 16, 
-                                 child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)
-                               );
-                             }
-                             
-                             final status = snapshot.data?.status;
-                             final isVerified = status == VerificationStatus.approved;
-                             
-                             Color badgeColor = Colors.orange;
-                             String badgeText = 'ACTION NEEDED';
-                             
-                             // If isVerified is explicitly true from profile data, trust it even if stream fails or is empty initially
-                           if (isApproved) {
-                             badgeColor = Colors.green;
-                             badgeText = 'VERIFIED';
-                           } else if (snapshot.hasData && status == VerificationStatus.pending) {
-                              badgeColor = Colors.amber;
-                              badgeText = 'PENDING';
-                           } else if (!snapshot.hasData && !isApproved) {
-                             // No data and not approved -> Action Needed
-                             badgeColor = Colors.orange;
-                             badgeText = 'ACTION NEEDED';
-                           }
+                    const SizedBox(width: 20),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(data['name'] ?? 'Provider', style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                          const SizedBox(height: 5),
+                          StreamBuilder<ProviderVerification?>(
+                            stream: verificationService.getVerificationStream(uid),
+                            builder: (context, snapshot) {
+                              if (snapshot.connectionState == ConnectionState.waiting) {
+                                return const SizedBox(
+                                  height: 16,
+                                  width: 16,
+                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                );
+                              }
 
-                           return Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: badgeColor, 
-                                borderRadius: BorderRadius.circular(10)
-                              ),
-                              child: Text(
-                                badgeText, 
-                                style: const TextStyle(color: Colors.white, fontSize: 10)
-                              ),
-                            );
-                          },
-                        ),
-                      ],
+                              final status = snapshot.data?.status;
+
+                              Color badgeColor = Colors.orange;
+                              String badgeText = 'ACTION NEEDED';
+
+                              if (isApproved) {
+                                badgeColor = Colors.green;
+                                badgeText = 'VERIFIED';
+                              } else if (snapshot.hasData && status == VerificationStatus.pending) {
+                                badgeColor = Colors.amber;
+                                badgeText = 'PENDING';
+                              } else if (!snapshot.hasData && !isApproved) {
+                                badgeColor = Colors.orange;
+                                badgeText = 'ACTION NEEDED';
+                              }
+
+                              return Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: badgeColor,
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Text(
+                                  badgeText,
+                                  style: const TextStyle(color: Colors.white, fontSize: 10),
+                                ),
+                              );
+                            },
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                  // Optional Edit Icon to indicate clickability
-                  const Icon(Icons.edit, color: Colors.white54, size: 16),
-                ],
+                    const Icon(Icons.edit, color: Colors.white54, size: 16),
+                  ],
+                ),
               ),
             ),
-          ),
-          const SizedBox(height: 12), // Reduced from 20
-           
-           // Verification Status Section
-           StreamBuilder<ProviderVerification?>(
-             stream: verificationService.getVerificationStream(uid),
-             builder: (context, snapshot) {
-               if (snapshot.connectionState == ConnectionState.waiting) {
+            const SizedBox(height: 12),
+
+            StreamBuilder<ProviderVerification?>(
+              stream: verificationService.getVerificationStream(uid),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: Padding(padding: EdgeInsets.all(20), child: CircularProgressIndicator()));
-               }
-               
-               // If no verification data found, but user is approved (Legacy/Manual), show a dummy "Verified" card
-               if (!snapshot.hasData || snapshot.data == null) {
+                }
+
+                if (!snapshot.hasData || snapshot.data == null) {
                   if (isApproved) {
                     return VerificationStatusCard(
                       verification: ProviderVerification(
-                        id: 'manual', 
-                        providerId: uid, 
-                        documentType: 'manual', 
-                        documentUrl: '', 
-                        status: VerificationStatus.approved, 
-                        submittedAt: DateTime.now()
-                      ), 
-                      onReverify: () {}
+                        id: 'manual',
+                        providerId: uid,
+                        documentType: 'manual',
+                        documentUrl: '',
+                        status: VerificationStatus.approved,
+                        submittedAt: DateTime.now(),
+                      ),
+                      onReverify: () {},
                     );
                   }
                   return const SizedBox();
-               }
+                }
 
-               return VerificationStatusCard(
-                 verification: snapshot.data,
-                 onReverify: () {
+                return VerificationStatusCard(
+                  verification: snapshot.data,
+                  onReverify: () {
                     Navigator.push(context, MaterialPageRoute(builder: (_) => VerificationSubmissionScreen()));
-                 },
-               );
-             },
-           ),
+                  },
+                );
+              },
+            ),
 
-           const SizedBox(height: 12), // Reduced from 20
+            const SizedBox(height: 12),
 
-           // Use placeholder for other stats for now
-           // Actions Grid
-           // Actions Grid
-           // Actions Grid
-           Row(
-             children: [
-               Expanded(
-                 child: GlassDashboardTile(
-                   icon: Icons.calendar_month,
-                   title: 'Availability',
-                   subtitle: 'Manage slots',
-                   color: const Color(0xFF69F0AE),
-                   onTap: () {
-                      Navigator.push(context, MaterialPageRoute(builder: (_) => const ManageAvailabilityScreen()));
-                   },
-                 ),
-               ),
-               const SizedBox(width: 12),
-               Expanded(
-                 child: GlassDashboardTile(
-                   icon: Icons.bookmark_border,
-                   title: 'Bookings',
-                   subtitle: 'View reservations',
-                   color: Colors.purpleAccent,
-                   onTap: () {
-                      Navigator.push(context, MaterialPageRoute(builder: (_) => const BookingListScreen(isProvider: true)));
-                   },
-                 ),
-               ),
-             ],
-           ),
-           const SizedBox(height: 12),
-           Row( // Second row for Enquiry or future items
+            Row(
               children: [
                 Expanded(
-                 child: GlassDashboardTile(
-                   icon: Icons.chat_bubble_outline,
-                   title: 'Enquiries',
-                   subtitle: 'Customer questions',
-                   color: Colors.orangeAccent,
-                   onTap: () {
-                      Navigator.push(context, MaterialPageRoute(builder: (_) => const EnquiryListScreen(isProvider: true)));
-                   },
-                 ),
-               ),
-               const SizedBox(width: 12),
-               Expanded(child: SizedBox()), // Placeholder for balance
+                  child: GlassDashboardTile(
+                    icon: Icons.calendar_month,
+                    title: 'Availability',
+                    subtitle: 'Manage slots',
+                    color: const Color(0xFF69F0AE),
+                    onTap: () {
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => const ManageAvailabilityScreen()));
+                    },
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: GlassDashboardTile(
+                    icon: Icons.bookmark_border,
+                    title: 'Bookings',
+                    subtitle: 'View reservations',
+                    color: Colors.purpleAccent,
+                    onTap: () {
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => const BookingListScreen(isProvider: true)));
+                    },
+                  ),
+                ),
               ],
-           ),
-        ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: GlassDashboardTile(
+                    icon: Icons.chat_bubble_outline,
+                    title: 'Enquiries',
+                    subtitle: 'Customer questions',
+                    color: Colors.orangeAccent,
+                    onTap: () {
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => const EnquiryListScreen(isProvider: true)));
+                    },
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: GlassDashboardTile(
+                    icon: Icons.star_border,
+                    title: 'Reviews',
+                    subtitle: 'Feedback & Ratings',
+                    color: Colors.blueAccent,
+                    onTap: () {
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => const SPReviewsScreen()));
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
-    ),
     );
   }
 
@@ -403,9 +366,9 @@ class _SPDashboardScreenState extends State<SPDashboardScreen> {
               const SizedBox(height: 30),
               ElevatedButton(
                 onPressed: () {
-                   Navigator.push(context, MaterialPageRoute(builder: (_) => VerificationSubmissionScreen()));
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => VerificationSubmissionScreen()));
                 },
-                 style: ElevatedButton.styleFrom(
+                style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.white,
                   foregroundColor: const Color(0xFF203A43),
                   padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
@@ -416,15 +379,15 @@ class _SPDashboardScreenState extends State<SPDashboardScreen> {
                   builder: (context, snapshot) {
                     if (snapshot.connectionState == ConnectionState.waiting) {
                       return const SizedBox(
-                        height: 20, 
-                        width: 20, 
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF203A43))
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF203A43)),
                       );
                     }
-                    
+
                     final hasSubmitted = snapshot.hasData && snapshot.data != null;
                     final text = hasSubmitted ? 'Check Status' : 'Submit Verification';
-                    
+
                     return Text(
                       text,
                       style: GoogleFonts.poppins(fontWeight: FontWeight.w600),

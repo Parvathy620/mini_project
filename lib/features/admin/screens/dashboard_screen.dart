@@ -12,12 +12,13 @@ import 'manage_destinations/destination_list_screen.dart';
 import 'admin_verification_dashboard.dart';
 import 'manage_providers/provider_management_screen.dart';
 import '../../../core/services/verification_service.dart';
+import 'admin_issue_inbox_screen.dart';
 import '../widgets/glass_dashboard_tile.dart';
 import '../../common/screens/settings_screen.dart';
 import '../../../core/models/notification_model.dart';
 import '../../../core/services/notification_service.dart';
 import '../../../core/widgets/glass_container.dart';
-import '../../common/screens/notification_list_screen.dart';
+import '../../../core/widgets/notification_bell.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
@@ -44,42 +45,7 @@ class DashboardScreen extends StatelessWidget {
             fontSize: 16,
           ),
         ),
-        leading: StreamBuilder<List<AppNotification>>(
-          // Listen to 'admin' notifications
-          stream: Provider.of<NotificationService>(context, listen: false).getNotifications('admin'),
-          builder: (context, snapshot) {
-            final hasUnread = snapshot.data?.any((n) => !n.isRead) ?? false;
-            return Center(
-              child: GlassContainer(
-                padding: const EdgeInsets.all(8),
-                borderRadius: BorderRadius.circular(12),
-                blur: 5,
-                opacity: 0.1,
-                child: InkWell(
-                  onTap: () {
-                     Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationListScreen(userId: 'admin')));
-                  },
-                  child: Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      const Icon(Icons.notifications, color: Colors.white, size: 20),
-                      if (hasUnread)
-                        Positioned(
-                          top: -2,
-                          right: -2,
-                          child: Container(
-                            width: 8,
-                            height: 8,
-                            decoration: const BoxDecoration(color: Colors.redAccent, shape: BoxShape.circle),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          }
-        ),
+        leading: const NotificationBell(),
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 8.0),
@@ -214,6 +180,27 @@ class DashboardScreen extends StatelessWidget {
                           onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ProviderManagementScreen())),
                         ),
                       ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                
+                // Row 3: Issue Reports
+                RunwayReveal(
+                  delayMs: 800,
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: GlassDashboardTile(
+                          title: 'Issue Reports',
+                          subtitle: 'User Concerns',
+                          icon: Icons.bug_report,
+                          color: Colors.redAccent,
+                          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminIssueInboxScreen())),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      const Spacer(),
                     ],
                   ),
                 ),

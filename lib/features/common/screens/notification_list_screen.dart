@@ -31,7 +31,7 @@ class NotificationListScreen extends StatelessWidget {
       ),
       body: AppBackground(
         child: StreamBuilder<List<AppNotification>>(
-          stream: notificationService.getNotifications(targetUid),
+          stream: notificationService.getNotificationsStream(targetUid),
           builder: (context, snapshot) {
             if (snapshot.hasError) {
               return Center(child: Text('Error loading notifications', style: GoogleFonts.inter(color: Colors.redAccent)));

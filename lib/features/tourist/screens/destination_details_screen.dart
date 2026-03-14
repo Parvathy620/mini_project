@@ -6,6 +6,8 @@ import '../../../core/widgets/app_background.dart';
 import '../../../core/widgets/luxury_glass.dart';
 import '../../../core/widgets/safe_network_image.dart';
 import 'provider_search_screen.dart';
+import '../../../core/widgets/star_rating.dart';
+import '../../reviews/screens/reviews_screen.dart';
 
 class DestinationDetailsScreen extends StatelessWidget {
   final DestinationModel destination;
@@ -151,6 +153,63 @@ class DestinationDetailsScreen extends StatelessWidget {
                             ),
                           ),
                         ],
+                      ),
+                      
+                      const SizedBox(height: 24),
+                      
+                      // Reviews Row
+                      InkWell(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => ReviewsScreen(
+                                targetId: destination.id,
+                                targetType: 'destination',
+                                targetName: destination.name,
+                              ),
+                            ),
+                          );
+                        },
+                        borderRadius: BorderRadius.circular(12),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.05),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.white10),
+                          ),
+                          child: Row(
+                            children: [
+                              Text(
+                                destination.rating.toStringAsFixed(1),
+                                style: GoogleFonts.outfit(
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    StarRating(rating: destination.rating, size: 16),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      'Tap to read or write reviews',
+                                      style: GoogleFonts.inter(
+                                        fontSize: 12,
+                                        color: Colors.white54,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const Icon(Icons.arrow_forward_ios, color: Colors.white30, size: 16),
+                            ],
+                          ),
+                        ),
                       ),
                       
                       const SizedBox(height: 32),

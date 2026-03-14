@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import '../models/booking_model.dart';
+import '../models/booking_hold_model.dart';
 import 'notification_service.dart';
 
 class BookingService {
@@ -19,11 +20,39 @@ class BookingService {
       
       // Notify Provider
       try {
-        await NotificationService().sendNotification(
-          userId: booking.providerId,
+        await NotificationService().sendPushNotification(
+          targetUserId: booking.providerId,
           title: 'New Booking Request',
           body: '${booking.touristName} requested a booking for ${booking.timeSlot}.',
-          type: 'booking',
+          data: {
+            'type': 'booking',
+            'relatedId': booking.id,
+          },
+        );
+      } catch (_) {}
+
+      // Notify Admin
+      try {
+        await NotificationService().sendNotificationToAdmin(
+          title: 'New Booking Activity',
+          body: 'A new booking has been created in the system by ${booking.touristName}.',
+          data: {
+            'type': 'booking',
+            'relatedId': booking.id,
+          },
+        );
+      } catch (_) {}
+
+      // Notify Customer (Confirmation of request)
+      try {
+        await NotificationService().sendPushNotification(
+          targetUserId: booking.touristId,
+          title: 'Booking Confirmed',
+          body: 'Your booking request has been successfully created.',
+          data: {
+            'type': 'booking',
+            'relatedId': booking.id,
+          },
         );
       } catch (_) {}
 
@@ -75,25 +104,37 @@ class BookingService {
         DocumentSnapshot snap = await _firestore.collection(_collection).doc(bookingId).get();
         if (snap.exists) {
            BookingModel booking = BookingModel.fromMap(snap.data() as Map<String, dynamic>, bookingId);
-           String title = newStatus == 'confirmed' ? 'Booking Confirmed' : 'Booking Cancelled';
-           String body = newStatus == 'confirmed' 
-               ? 'Your booking with ${booking.providerName} is confirmed!'
-               : 'Booking with ${booking.providerName} was cancelled.';
            
-           // If update initiated by provider (usually), notify tourist
-           // If by tourist (cancel), notify provider. 
-           // For simplicity, we notify both or just the 'other' party.
-           // Ideally need to know who initiated. 
-           // Let's notify Tourist if Confirmed.
-           // Notify Provider if Cancelled by Tourist? Hard to know context here.
-           // Lets just notify Tourist for now as they are the ones waiting.
-           
-           await NotificationService().sendNotification(
-              userId: booking.touristId,
-              title: title,
-              body: body,
-              type: 'booking',
-           );
+           if (newStatus == 'confirmed') {
+             // Notify Tourist
+             await NotificationService().sendPushNotification(
+               targetUserId: booking.touristId,
+               title: 'Booking Update',
+               body: 'Your booking with ${booking.providerName} has been confirmed.',
+               data: {'type': 'booking', 'relatedId': bookingId},
+             );
+             // Notify Provider
+             await NotificationService().sendPushNotification(
+               targetUserId: booking.providerId,
+               title: 'Booking Accepted',
+               body: 'You accepted a booking request from ${booking.touristName}.',
+               data: {'type': 'booking', 'relatedId': bookingId},
+             );
+           } else if (newStatus == 'cancelled') {
+             // Notify both
+              await NotificationService().sendPushNotification(
+               targetUserId: booking.touristId,
+               title: 'Booking Update',
+               body: 'Your booking with ${booking.providerName} was cancelled.',
+               data: {'type': 'booking', 'relatedId': bookingId},
+             );
+              await NotificationService().sendPushNotification(
+               targetUserId: booking.providerId,
+               title: 'Booking Update',
+               body: 'Booking with ${booking.touristName} was cancelled.',
+               data: {'type': 'booking', 'relatedId': bookingId},
+             );
+           }
         }
       } catch (_) {}
 
@@ -175,11 +216,14 @@ class BookingService {
             ? 'Your booking with ${booking.providerName} has been cancelled by the provider.'
             : 'Booking with ${booking.touristName} has been cancelled by the tourist.';
          
-         await NotificationService().sendNotification(
-            userId: targetUserId,
+         await NotificationService().sendPushNotification(
+            targetUserId: targetUserId,
             title: title,
             body: body,
-            type: 'booking',
+            data: {
+              'type': 'booking',
+              'relatedId': bookingId,
+            },
          );
       } catch (_) {}
 
@@ -190,4 +234,113 @@ class BookingService {
   }
 
   String generateId() => _firestore.collection(_collection).doc().id;
+  String generateHoldId() => _firestore.collection('booking_holds').doc().id;
+
+  /// Get Available Capacity for a Slot
+  Future<int> getAvailableCapacity({
+    required String providerId,
+    required DateTime date,
+    required String timeSlot,
+    required int defaultCapacity,
+  }) async {
+    try {
+      int bookedCount = 0;
+      int heldCount = 0;
+
+      // 1. Get confirmed/pending bookings
+      final bookingsSnap = await _firestore.collection(_collection).where('providerId', isEqualTo: providerId).get();
+      for (var doc in bookingsSnap.docs) {
+        final b = BookingModel.fromMap(doc.data(), doc.id);
+        if (b.status != 'cancelled' && b.status != 'rejected') {
+          if (b.bookingDate.year == date.year && b.bookingDate.month == date.month && b.bookingDate.day == date.day) {
+             if (b.timeSlot == timeSlot) {
+               bookedCount += b.numberOfPeople;
+             }
+          }
+        }
+      }
+
+      // 2. Get active holds
+      final holdsSnap = await _firestore.collection('booking_holds').where('providerId', isEqualTo: providerId).get();
+      final now = DateTime.now();
+      for (var doc in holdsSnap.docs) {
+        final h = BookingHoldModel.fromMap(doc.data(), doc.id);
+        if (h.expiresAt.isAfter(now)) {
+           if (h.date.year == date.year && h.date.month == date.month && h.date.day == date.day) {
+             if (h.timeSlot == timeSlot) {
+               heldCount += h.touristCount;
+             }
+           }
+        } else {
+           // Clean up expired hold asynchronously
+           _firestore.collection('booking_holds').doc(doc.id).delete().catchError((_) {});
+        }
+      }
+
+      int remaining = defaultCapacity - bookedCount - heldCount;
+      return remaining > 0 ? remaining : 0;
+    } catch (e) {
+      debugPrint('[BookingService] Failed to get capacity: $e');
+      return 0; // Safe fallback
+    }
+  }
+
+  /// Create a temporary hold
+  Future<bool> createBookingHold(BookingHoldModel hold, int defaultCapacity) async {
+    try {
+       // Check capacity before holding
+       int capacity = await getAvailableCapacity(
+         providerId: hold.providerId,
+         date: hold.date,
+         timeSlot: hold.timeSlot,
+         defaultCapacity: defaultCapacity,
+       );
+
+       if (capacity >= hold.touristCount) {
+          await _firestore.collection('booking_holds').doc(hold.id).set(hold.toMap());
+          return true;
+       }
+       return false;
+    } catch(e) {
+      debugPrint('Error creating hold: $e');
+      return false;
+    }
+  }
+
+  /// Convert Hold to Booking Request
+  Future<void> createBookingFromHold(BookingModel booking, String holdId) async {
+     try {
+       WriteBatch batch = _firestore.batch();
+       batch.delete(_firestore.collection('booking_holds').doc(holdId));
+       batch.set(_firestore.collection(_collection).doc(booking.id), booking.toMap());
+       await batch.commit();
+
+       debugPrint('[BookingService] Booking requested from hold: ${booking.id}');
+       
+       // Notifications
+       try {
+         await NotificationService().sendPushNotification(
+           targetUserId: booking.providerId,
+           title: 'New Booking Request',
+           body: '${booking.touristName} requested a booking for ${booking.timeSlot}.',
+           data: {'type': 'booking', 'relatedId': booking.id},
+         );
+         await NotificationService().sendNotificationToAdmin(
+           title: 'New Booking Activity',
+           body: 'A new booking has been created in the system by ${booking.touristName}.',
+           data: {'type': 'booking', 'relatedId': booking.id},
+         );
+         await NotificationService().sendPushNotification(
+           targetUserId: booking.touristId,
+           title: 'Booking Confirmed',
+           body: 'Your booking request has been successfully created.',
+           data: {'type': 'booking', 'relatedId': booking.id},
+         );
+       } catch (_) {}
+
+     } catch(e) {
+       debugPrint('[BookingService] Failed to create booking from hold: $e');
+       rethrow;
+     }
+  }
 }

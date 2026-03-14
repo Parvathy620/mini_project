@@ -7,6 +7,7 @@ class AvailabilityModel {
   final TimeOfDay startTime;
   final TimeOfDay endTime;
   final int slotDurationMinutes;
+  final int defaultSlotCapacity; // Default number of tourists a provider can handle per slot
   final List<DateTime> blockedDates;
   final Map<String, List<String>> manuallyBlockedSlots; // Key: "yyyy-MM-dd", Value: ["10:00", "14:00"]
 
@@ -16,6 +17,7 @@ class AvailabilityModel {
     this.startTime = const TimeOfDay(hour: 9, minute: 0),
     this.endTime = const TimeOfDay(hour: 17, minute: 0),
     this.slotDurationMinutes = 60,
+    this.defaultSlotCapacity = 10, // Default to 10
     this.blockedDates = const [],
     this.manuallyBlockedSlots = const {},
   });
@@ -29,6 +31,7 @@ class AvailabilityModel {
       'endHour': endTime.hour,
       'endMinute': endTime.minute,
       'slotDurationMinutes': slotDurationMinutes,
+      'defaultSlotCapacity': defaultSlotCapacity,
       'blockedDates': blockedDates.map((e) => Timestamp.fromDate(e)).toList(),
       // manuallyBlockedSlots logic might need Flattening or a sub-collection for scalability, 
       // but for "Mini Project", a Map is okay if not too huge.
@@ -49,6 +52,7 @@ class AvailabilityModel {
         minute: map['endMinute'] ?? 0,
       ),
       slotDurationMinutes: map['slotDurationMinutes'] ?? 60,
+      defaultSlotCapacity: map['defaultSlotCapacity'] ?? 10,
       blockedDates: (map['blockedDates'] as List<dynamic>?)
               ?.map((e) => (e as Timestamp).toDate())
               .toList() ??

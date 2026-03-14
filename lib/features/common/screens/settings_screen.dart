@@ -4,6 +4,8 @@ import '../../../core/widgets/app_background.dart';
 import '../../../core/widgets/luxury_glass.dart';
 import '../../../core/widgets/glass_confirmation_dialog.dart';
 import '../widgets/change_password_dialog.dart';
+import '../../notifications/screens/notification_settings_screen.dart';
+import '../screens/report_issue_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -13,8 +15,6 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  bool _notificationsEnabled = true;
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -34,7 +34,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
               children: [
                 _buildSectionHeader('General'),
                 const SizedBox(height: 10),
-                _buildNotificationTile(),
+                _buildSettingsTile(
+                  icon: Icons.notifications_active,
+                  title: 'Notification Settings',
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const NotificationSettingsScreen()),
+                    );
+                  },
+                ),
                 const SizedBox(height: 12),
                 _buildSettingsTile(
                   icon: Icons.lock_reset,
@@ -60,7 +69,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 const SizedBox(height: 12),
                 _buildSettingsTile(
                   icon: Icons.bug_report_outlined,
-                  title: 'Report a Bug',
+                  title: 'Report a Issue',
                   onTap: () => _showBugReportDialog(context),
                   color: Colors.orangeAccent,
                 ),
@@ -78,50 +87,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
       child: Text(
         title.toUpperCase(),
         style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white60, letterSpacing: 1.2),
-      ),
-    );
-  }
-
-  Widget _buildNotificationTile() {
-    return LuxuryGlass(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-      borderRadius: BorderRadius.circular(20),
-      opacity: 0.15,
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: const Color(0xFF66BB6A).withOpacity(0.2),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(Icons.notifications_active, color: const Color(0xFF66BB6A), size: 20),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Text(
-              'Notifications',
-              style: GoogleFonts.inter(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w500),
-            ),
-          ),
-          Switch(
-            value: _notificationsEnabled,
-            onChanged: (val) {
-              setState(() => _notificationsEnabled = val);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(val ? 'Notifications Enabled' : 'Notifications Disabled'),
-                  duration: const Duration(seconds: 1),
-                  backgroundColor: Colors.white10,
-                )
-              );
-            },
-            activeColor: const Color(0xFF69F0AE),
-            activeTrackColor: const Color(0xFF69F0AE).withOpacity(0.3),
-            inactiveThumbColor: Colors.white54,
-            inactiveTrackColor: Colors.white10,
-          ),
-        ],
       ),
     );
   }
@@ -227,63 +192,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _showBugReportDialog(BuildContext context) {
-    final controller = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (context) => Dialog(
-        backgroundColor: Colors.transparent,
-        child: LuxuryGlass(
-          padding: const EdgeInsets.all(24),
-          borderRadius: BorderRadius.circular(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Report a Bug', style: GoogleFonts.outfit(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 16),
-              TextField(
-                controller: controller,
-                style: const TextStyle(color: Colors.white),
-                decoration: InputDecoration(
-                  hintText: 'Describe the issue...',
-                  hintStyle: const TextStyle(color: Colors.white38),
-                  filled: true,
-                  fillColor: Colors.white.withOpacity(0.05),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                  contentPadding: const EdgeInsets.all(16),
-                ),
-                maxLines: 4,
-              ),
-              const SizedBox(height: 24),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                   TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text('Cancel', style: TextStyle(color: Colors.white54)),
-                  ),
-                  const SizedBox(width: 8),
-                  ElevatedButton(
-                    onPressed: () {
-                      if (controller.text.isNotEmpty) {
-                        Navigator.pop(context);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Bug report submitted. Thank you!'))
-                        );
-                      }
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF69F0AE),
-                      foregroundColor: Colors.black,
-                    ),
-                    child: const Text('Submit'),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const ReportIssueScreen()),
     );
   }
   void _showChangePasswordDialog(BuildContext context) {
