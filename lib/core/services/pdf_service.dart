@@ -16,7 +16,7 @@ class PdfService {
     if (bookings.isEmpty) return;
     final firstBooking = bookings.first;
     final aggregatedPrice = bookings.fold<double>(0, (sum, b) => sum + b.totalPrice);
-    final datesFormatted = bookings.map((b) => DateFormat('MMM dd').format(b.bookingDate)).join(', ');
+    final datesFormatted = bookings.expand((b) => b.dates).toSet().map((d) => DateFormat('MMM dd').format(d)).join(', ');
 
     final logoImage = await imageFromAssetBundle('assets/images/travel_app_image.png');
     
@@ -139,7 +139,7 @@ class PdfService {
                              pw.Row(
                                children: [
                                  pw.Expanded(child: _buildInfoBlock('Date(s)', datesFormatted)),
-                                 pw.Expanded(child: _buildInfoBlock('Time Slot', firstBooking.timeSlot)),
+                                 pw.Expanded(child: _buildInfoBlock('Total Days', '${bookings.expand((b) => b.dates).toSet().length} Day(s)')),
                                ]
                              ),
                           ],

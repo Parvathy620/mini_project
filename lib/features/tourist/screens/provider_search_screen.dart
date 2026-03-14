@@ -74,6 +74,7 @@ class _ProviderSearchScreenState extends State<ProviderSearchScreen> {
         selectedCategories: _selectedCategories,
         priceRange: _priceRange,
         onlyAvailable: _onlyAvailable,
+        showPriceFilter: true,
         onApply: (districts, categories, price, available) {
           setState(() {
             _selectedCategories = categories;
@@ -110,6 +111,8 @@ class _ProviderSearchScreenState extends State<ProviderSearchScreen> {
             _buildSortOption('Recommended (Rating)', 'rating_desc'),
             _buildSortOption('Price: Low to High', 'price_asc'),
             _buildSortOption('Price: High to Low', 'price_desc'),
+            _buildSortOption('Most Popular', 'popular'),
+            _buildSortOption('Newest', 'newest'),
             _buildSortOption('Availability', 'availability'),
           ],
         ),
@@ -222,15 +225,18 @@ class _ProviderSearchScreenState extends State<ProviderSearchScreen> {
               ),
 
               // Active Filters
-              if (_selectedCategories.isNotEmpty || _onlyAvailable)
+              if (_selectedCategories.isNotEmpty || _onlyAvailable || _priceRange.start > 0 || _priceRange.end < 50000)
                 SizedBox(
                   height: 40,
                   child: ListView(
                     scrollDirection: Axis.horizontal,
                     padding: const EdgeInsets.symmetric(horizontal: 24),
                     children: [
-                      if (_onlyAvailable) 
+                      if (_onlyAvailable)
                         _buildFilterChip('Available Only', () => setState(() => _onlyAvailable = false)),
+                      if (_priceRange.start > 0 || _priceRange.end < 50000)
+                        _buildFilterChip('₹${_priceRange.start.round()} – ₹${_priceRange.end.round()}',
+                            () => setState(() => _priceRange = const RangeValues(0, 50000))),
                       ..._selectedCategories.map((c) => _buildFilterChip(c, () => setState(() => _selectedCategories.remove(c)))),
                     ],
                   ),
@@ -337,10 +343,13 @@ class _ProviderSearchScreenState extends State<ProviderSearchScreen> {
                       providers = providers.where((p) => p.isAvailable).toList();
                     }
 
-                    // 3. Price (Approximate filter)
-                    // Assuming priceRange is string like '$$$' or number? Model says String.
-                    // We can't strictly filter string range with numeric controls easily without parsing.
-                    // Skipping numeric price filter for now unless parsing logic is added.
+                    // 3. Price Filter
+                    if (_priceRange.start > 0 || _priceRange.end < 50000) {
+                      providers = providers.where((p) =>
+                        p.price >= _priceRange.start &&
+                        p.price <= _priceRange.end
+                      ).toList();
+                    }
 
                     // 4. Sorting
                     switch (_sortBy) {
@@ -352,6 +361,14 @@ class _ProviderSearchScreenState extends State<ProviderSearchScreen> {
                         break;
                       case 'availability':
                         providers.sort((a, b) => (b.isAvailable ? 1 : 0).compareTo(a.isAvailable ? 1 : 0));
+                        break;
+                      case 'popular':
+                        // Sort by rating as a proxy for popularity
+                        providers.sort((a, b) => b.rating.compareTo(a.rating));
+                        break;
+                      case 'newest':
+                        providers.sort((a, b) =>
+                          (b.createdAt ?? DateTime(2000)).compareTo(a.createdAt ?? DateTime(2000)));
                         break;
                       case 'rating_desc':
                       default:
@@ -427,178 +444,200 @@ class _ProviderSearchScreenState extends State<ProviderSearchScreen> {
       padding: const EdgeInsets.all(16),
       borderRadius: BorderRadius.circular(24),
       opacity: 0.1,
-      child: Row(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Profile Image
-          // Profile Image
-          Container(
-            width: 70,
-            height: 70,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: Colors.white.withOpacity(0.1),
-              border: Border.all(color: Colors.white.withOpacity(0.2)),
-            ),
-            child: ClipOval(
-              child: SafeNetworkImage(
-                imageUrl: (provider.googleDriveImageUrl.isNotEmpty) 
-                    ? provider.googleDriveImageUrl 
-                    : provider.profileImageUrl,
-                fit: BoxFit.cover,
-                fallback: const Icon(Icons.person, color: Colors.white54, size: 30),
+          // ── TOP ROW: Avatar + Name / Rating ──────────────────────────
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Container(
+                width: 60,
+                height: 60,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white.withOpacity(0.1),
+                  border: Border.all(color: Colors.white.withOpacity(0.2)),
+                ),
+                child: ClipOval(
+                  child: SafeNetworkImage(
+                    imageUrl: provider.googleDriveImageUrl.isNotEmpty
+                        ? provider.googleDriveImageUrl
+                        : provider.profileImageUrl,
+                    fit: BoxFit.cover,
+                    fallback: const Icon(Icons.person, color: Colors.white54, size: 28),
+                  ),
+                ),
               ),
-            ),
-          ),
-          const SizedBox(width: 16),
-          
-          // Info
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(
-                      child: Text(
-                        provider.name,
-                        style: GoogleFonts.outfit(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                    Text(
+                      provider.name,
+                      style: GoogleFonts.outfit(
+                        fontSize: 17,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
                       ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
+                    const SizedBox(height: 2),
                     Row(
                       children: [
-                        const Icon(Icons.star_rounded, color: Colors.amber, size: 16),
-                        const SizedBox(width: 4),
+                        const Icon(Icons.star_rounded, color: Colors.amber, size: 14),
+                        const SizedBox(width: 3),
                         Text(
                           provider.rating.toStringAsFixed(1),
-                          style: GoogleFonts.inter(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w600,
-                          ),
+                          style: GoogleFonts.inter(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w600),
                         ),
-                      ],
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                
-                // Services Tags
-                Wrap(
-                  spacing: 4,
-                  runSpacing: 4,
-                  children: provider.services.take(3).map((service) => Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.05),
-                      borderRadius: BorderRadius.circular(4),
-                      border: Border.all(color: Colors.white.withOpacity(0.1)),
-                    ),
-                    child: Text(
-                      service,
-                      style: GoogleFonts.inter(fontSize: 10, color: Colors.white70),
-                    ),
-                  )).toList(),
-                ),
-
-                const SizedBox(height: 12),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    // Price Section removed to fix overflow
-                    const Spacer(),
-                    const SizedBox(width: 8),
-                    
-                    // Action Buttons (Enquire & Book & Reviews)
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        // Reviews Button
-                        GestureDetector(
-                          onTap: () {
-                             Navigator.push(
-                               context, 
-                               MaterialPageRoute(builder: (_) => ReviewsScreen(
-                                 targetId: provider.uid, 
-                                 targetType: 'service_provider', 
-                                 targetName: provider.name,
-                               ))
-                             );
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.1),
-                              shape: BoxShape.circle,
-                              border: Border.all(color: Colors.white.withOpacity(0.2)),
-                            ),
-                            child: const Icon(Icons.star_outline_rounded, color: Colors.amber, size: 18),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-
-                        // Enquire Button
-                        GestureDetector(
-                          onTap: () {
-                             showDialog(
-                               context: context, 
-                               builder: (_) => EnquiryDialog(provider: provider)
-                             );
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.1),
-                              shape: BoxShape.circle,
-                              border: Border.all(color: Colors.white.withOpacity(0.2)),
-                            ),
-                            child: const Icon(Icons.chat_bubble_outline_rounded, color: const Color(0xFF69F0AE), size: 18),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-
-                        // Book Now Button
-                        GestureDetector(
-                          onTap: () {
-                             Navigator.push(
-                               context, 
-                               MaterialPageRoute(builder: (_) => BookingScreen(provider: provider))
-                             );
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(20),
-                              boxShadow: [
-                                 BoxShadow(color: Colors.white.withOpacity(0.6), blurRadius: 12, offset: const Offset(0, 0))
-                              ]
-                            ),
+                        if (provider.location.isNotEmpty) ...[
+                          const SizedBox(width: 8),
+                          const Icon(Icons.location_on, color: Color(0xFF69F0AE), size: 12),
+                          const SizedBox(width: 2),
+                          Expanded(
                             child: Text(
-                              'Book Now',
-                              style: GoogleFonts.inter(
-                                fontSize: 12, 
-                                fontWeight: FontWeight.bold, 
-                                color: Colors.black
-                              ),
+                              provider.location,
+                              style: GoogleFonts.inter(color: Colors.white54, fontSize: 11),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
-                        ),
+                        ],
                       ],
                     ),
                   ],
                 ),
-              ],
+              ),
+            ],
+          ),
+
+          // ── SERVICES TAGS ─────────────────────────────────────────────
+          if (provider.services.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 4,
+              runSpacing: 4,
+              children: provider.services.take(3).map((service) => Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.05),
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: Colors.white.withOpacity(0.1)),
+                ),
+                child: Text(service, style: GoogleFonts.inter(fontSize: 10, color: Colors.white60)),
+              )).toList(),
             ),
+          ],
+
+          const SizedBox(height: 12),
+          const Divider(color: Colors.white10, height: 1),
+          const SizedBox(height: 12),
+
+          // ── PRICE + ACTIONS ROW ───────────────────────────────────────
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              // Price Display
+              if (provider.price > 0)
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '₹${provider.price.toStringAsFixed(0)}',
+                      style: GoogleFonts.outfit(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: const Color(0xFF69F0AE),
+                      ),
+                    ),
+                    Text(
+                      'per person',
+                      style: GoogleFonts.inter(fontSize: 9, color: Colors.white38),
+                    ),
+                  ],
+                )
+              else
+                Text(
+                  'Price not set',
+                  style: GoogleFonts.inter(fontSize: 11, color: Colors.white30),
+                ),
+
+              const Spacer(),
+
+              // Reviews Icon Button
+              _iconButton(
+                icon: Icons.star_outline_rounded,
+                color: Colors.amber,
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => ReviewsScreen(
+                    targetId: provider.uid,
+                    targetType: 'service_provider',
+                    targetName: provider.name,
+                  )),
+                ),
+              ),
+              const SizedBox(width: 8),
+
+              // Enquire Icon Button
+              _iconButton(
+                icon: Icons.chat_bubble_outline_rounded,
+                color: const Color(0xFF69F0AE),
+                onTap: () => showDialog(
+                  context: context,
+                  builder: (_) => EnquiryDialog(provider: provider),
+                ),
+              ),
+              const SizedBox(width: 10),
+
+              // Book Now Button
+              GestureDetector(
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => BookingScreen(provider: provider)),
+                ),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 9),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(color: Colors.white.withOpacity(0.5), blurRadius: 10),
+                    ],
+                  ),
+                  child: Text(
+                    'Book Now',
+                    style: GoogleFonts.inter(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black,
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),
     );
   }
+
+  Widget _iconButton({required IconData icon, required Color color, required VoidCallback onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.08),
+          shape: BoxShape.circle,
+          border: Border.all(color: Colors.white.withOpacity(0.15)),
+        ),
+        child: Icon(icon, color: color, size: 18),
+      ),
+    );
+  }
 }
+

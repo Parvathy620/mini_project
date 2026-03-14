@@ -9,6 +9,7 @@ class GlassFilterPanel extends StatefulWidget {
   final List<String> selectedCategories;
   final RangeValues priceRange;
   final bool onlyAvailable;
+  final bool showPriceFilter; // Whether to show the price range slider
   final Function(List<String>, List<String>, RangeValues, bool) onApply;
   final VoidCallback onReset;
 
@@ -20,6 +21,7 @@ class GlassFilterPanel extends StatefulWidget {
     required this.selectedCategories,
     required this.priceRange,
     required this.onlyAvailable,
+    this.showPriceFilter = false,
     required this.onApply,
     required this.onReset,
   });
@@ -95,30 +97,31 @@ class _GlassFilterPanelState extends State<GlassFilterPanel> {
                     const SizedBox(height: 32),
                   ],
 
-                  _buildSectionTitle('Price Range'),
-                  const SizedBox(height: 12),
-                  RangeSlider(
-                    values: _priceRange,
-                    min: 0,
-                    max: 10000,
-                    divisions: 100,
-                    activeColor: const Color(0xFF69F0AE),
-                    inactiveColor: Colors.white10,
-                    labels: RangeLabels(
-                      '₹${_priceRange.start.round()}',
-                      '₹${_priceRange.end.round()}',
+                  if (widget.showPriceFilter) ...[
+                    _buildSectionTitle('Price Range'),
+                    const SizedBox(height: 12),
+                    RangeSlider(
+                      values: _priceRange,
+                      min: 0,
+                      max: 50000,
+                      divisions: 100,
+                      activeColor: const Color(0xFF69F0AE),
+                      inactiveColor: Colors.white10,
+                      labels: RangeLabels(
+                        '₹${_priceRange.start.round()}',
+                        '₹${_priceRange.end.round()}',
+                      ),
+                      onChanged: (values) => setState(() => _priceRange = values),
                     ),
-                    onChanged: (values) => setState(() => _priceRange = values),
-                  ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text('₹0', style: GoogleFonts.inter(color: Colors.white38, fontSize: 12)),
-                      Text('₹10,000+', style: GoogleFonts.inter(color: Colors.white38, fontSize: 12)),
-                    ],
-                  ),
-
-                  const SizedBox(height: 32),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('₹0', style: GoogleFonts.inter(color: Colors.white38, fontSize: 12)),
+                        Text('₹50,000', style: GoogleFonts.inter(color: Colors.white38, fontSize: 12)),
+                      ],
+                    ),
+                    const SizedBox(height: 32),
+                  ],
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [

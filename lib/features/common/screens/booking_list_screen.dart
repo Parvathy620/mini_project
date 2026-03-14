@@ -11,7 +11,6 @@ import '../../../core/widgets/glass_confirmation_dialog.dart';
 
 class BookingListScreen extends StatelessWidget {
   final bool isProvider;
-
   const BookingListScreen({super.key, required this.isProvider});
 
   @override
@@ -24,19 +23,20 @@ class BookingListScreen extends StatelessWidget {
       child: Scaffold(
         extendBodyBehindAppBar: true,
         appBar: AppBar(
-          title: Text(isProvider ? 'My Bookings' : 'My Trips', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold)),
+          title: Text(isProvider ? 'My Bookings' : 'My Trips',
+              style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold)),
           backgroundColor: Colors.transparent,
           elevation: 0,
           leading: isProvider ? const BackButton(color: Colors.white) : null,
           automaticallyImplyLeading: isProvider,
           bottom: const TabBar(
-            indicatorColor: const Color(0xFF69F0AE),
-            labelColor: const Color(0xFF69F0AE),
+            indicatorColor: Color(0xFF69F0AE),
+            labelColor: Color(0xFF69F0AE),
             unselectedLabelColor: Colors.white60,
             tabs: [
               Tab(text: 'Upcoming'),
-              Tab(text: 'Pending'),
-              Tab(text: 'History'),
+              Tab(text: 'Completed'),
+              Tab(text: 'Cancelled'),
             ],
           ),
         ),
@@ -45,8 +45,8 @@ class BookingListScreen extends StatelessWidget {
             child: TabBarView(
               children: [
                 _BookingList(userId: user.uid, isProvider: isProvider, statusFilter: 'confirmed'),
-                _BookingList(userId: user.uid, isProvider: isProvider, statusFilter: 'pending'),
-                _BookingList(userId: user.uid, isProvider: isProvider, statusFilter: 'completed'), // Or history logic
+                _BookingList(userId: user.uid, isProvider: isProvider, statusFilter: 'completed'),
+                _BookingList(userId: user.uid, isProvider: isProvider, statusFilter: 'cancelled'),
               ],
             ),
           ),
@@ -77,12 +77,21 @@ class _BookingList extends StatelessWidget {
       ),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator(color: const Color(0xFF69F0AE)));
+          return const Center(child: CircularProgressIndicator(color: Color(0xFF69F0AE)));
         }
 
         final bookings = snapshot.data ?? [];
         if (bookings.isEmpty) {
-          return Center(child: Text('No ${statusFilter} bookings', style: GoogleFonts.inter(color: Colors.white54)));
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.calendar_today_outlined, size: 60, color: Colors.white.withOpacity(0.2)),
+                const SizedBox(height: 16),
+                Text('No $statusFilter bookings', style: GoogleFonts.inter(color: Colors.white38, fontSize: 16)),
+              ],
+            ),
+          );
         }
 
         return ListView.separated(
@@ -91,172 +100,178 @@ class _BookingList extends StatelessWidget {
           separatorBuilder: (_, __) => const SizedBox(height: 16),
           itemBuilder: (context, index) {
             final booking = bookings[index];
-            return RepaintBoundary(
-              child: LuxuryGlass(
-                padding: const EdgeInsets.all(16),
-                borderRadius: BorderRadius.circular(20),
-                opacity: 0.1,
-                blur: 5, // Optimized blur
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        isProvider ? booking.touristName : booking.providerName,
-                        style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: _getStatusColor(booking.status).withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: _getStatusColor(booking.status)),
-                        ),
-                        child: Text(
-                          booking.status.toUpperCase(),
-                          style: GoogleFonts.inter(color: _getStatusColor(booking.status), fontSize: 10, fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      const Icon(Icons.calendar_today, color: Colors.white70, size: 14),
-                      const SizedBox(width: 4),
-                      Text(
-                        DateFormat('MMM dd, yyyy').format(booking.bookingDate),
-                        style: GoogleFonts.inter(color: Colors.white70, fontSize: 13),
-                      ),
-                      const SizedBox(width: 16),
-                      const Icon(Icons.access_time, color: Colors.white70, size: 14),
-                      const SizedBox(width: 4),
-                      Text(
-                        booking.timeSlot,
-                        style: GoogleFonts.inter(color: Colors.white70, fontSize: 13),
-                      ),
-                      const SizedBox(width: 16),
-                      const Icon(Icons.people_outline, color: Colors.white70, size: 14),
-                      const SizedBox(width: 4),
-                      Text(
-                        '${booking.numberOfPeople} ${booking.numberOfPeople == 1 ? "Person" : "People"}',
-                        style: GoogleFonts.inter(color: Colors.white70, fontSize: 13),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  // Actions for Provider
-                  if (isProvider) ...[
-                    // Pending Actions
-                    if (booking.status == 'pending')
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          TextButton(
-                            onPressed: () => _confirmAction(context, booking.id, false, isProvider), // Reject
-                            child: const Text('Reject', style: TextStyle(color: Colors.redAccent)),
-                          ),
-                          const SizedBox(width: 8),
-                          ElevatedButton(
-                            style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-                            onPressed: () => _updateStatus(context, booking.id, 'confirmed'),
-                            child: const Text('Confirm', style: TextStyle(color: Colors.white)),
-                          ),
-                        ],
-                      ),
-                    
-                    // Confirmed: Option to Cancel
-                     if (booking.status == 'confirmed')
-                       Align(
-                         alignment: Alignment.centerRight,
-                         child: GestureDetector(
-                           onTap: () => _confirmAction(context, booking.id, true, isProvider), // Cancel
-                           child: Container(
-                             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                             decoration: BoxDecoration(
-                               color: Colors.redAccent.withOpacity(0.1),
-                               borderRadius: BorderRadius.circular(12),
-                               border: Border.all(color: Colors.redAccent.withOpacity(0.5)),
-                             ),
-                             child: Row(
-                               mainAxisSize: MainAxisSize.min,
-                               children: [
-                                 const Icon(Icons.cancel_outlined, size: 16, color: Colors.redAccent),
-                                 const SizedBox(width: 8),
-                                 Text(
-                                   'Cancel Booking', 
-                                   style: GoogleFonts.inter(color: Colors.redAccent, fontWeight: FontWeight.bold, fontSize: 13),
-                                 ),
-                               ],
-                             ),
-                           ),
-                         ),
-                       ),
-                  ],
-
-                  // Actions for Tourist
-                   if (!isProvider && (booking.status == 'pending' || booking.status == 'confirmed'))
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: GestureDetector(
-                        onTap: () => _confirmAction(context, booking.id, true, isProvider), // Cancel
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                          decoration: BoxDecoration(
-                            color: Colors.redAccent.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.redAccent.withOpacity(0.5)),
-                          ),
-                          child: Text(
-                            'Cancel Booking', 
-                            style: GoogleFonts.inter(color: Colors.redAccent, fontWeight: FontWeight.bold, fontSize: 13),
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          );
-        },
-      );
+            return _BookingCard(booking: booking, isProvider: isProvider);
+          },
+        );
       },
     );
   }
+}
 
-  Color _getStatusColor(String status) {
+class _BookingCard extends StatelessWidget {
+  final BookingModel booking;
+  final bool isProvider;
+
+  const _BookingCard({required this.booking, required this.isProvider});
+
+  Color _statusColor(String status) {
     switch (status) {
       case 'confirmed': return Colors.greenAccent;
-      case 'pending': return Colors.orangeAccent;
       case 'cancelled': return Colors.redAccent;
       case 'completed': return const Color(0xFF66BB6A);
       default: return Colors.grey;
     }
   }
 
+  String _formatDateRange(List<DateTime> dates) {
+    if (dates.isEmpty) return 'N/A';
+    if (dates.length == 1) return DateFormat('MMM dd, yyyy').format(dates.first);
+    return '${DateFormat('MMM dd').format(dates.first)} → ${DateFormat('MMM dd, yyyy').format(dates.last)}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bookingId = booking.id.substring(0, 8).toUpperCase();
+    return LuxuryGlass(
+      padding: const EdgeInsets.all(18),
+      borderRadius: BorderRadius.circular(20),
+      opacity: 0.1,
+      blur: 5,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header row
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      isProvider ? booking.touristName : booking.providerName,
+                      style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    Text('#BK$bookingId', style: GoogleFonts.ibmPlexMono(color: Colors.white38, fontSize: 11)),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: _statusColor(booking.status).withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: _statusColor(booking.status)),
+                ),
+                child: Text(
+                  booking.status.toUpperCase(),
+                  style: GoogleFonts.inter(color: _statusColor(booking.status), fontSize: 10, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+
+          // Info rows
+          _infoRow(Icons.calendar_today, _formatDateRange(booking.dates)),
+          const SizedBox(height: 6),
+          _infoRow(Icons.view_day_outlined, '${booking.dates.length} Day${booking.dates.length > 1 ? 's' : ''}'),
+          const SizedBox(height: 6),
+          _infoRow(Icons.people_outline, '${booking.numberOfPeople} Tourist${booking.numberOfPeople > 1 ? 's' : ''}'),
+          const SizedBox(height: 6),
+          _infoRow(Icons.payments_outlined, '₹${booking.totalPrice.toStringAsFixed(0)} Total'),
+
+          // Action buttons
+          if (_shouldShowActions(booking)) ...[
+            const Divider(color: Colors.white10, height: 24),
+            _buildActions(context, booking),
+          ],
+        ],
+      ),
+    );
+  }
+
+  bool _shouldShowActions(BookingModel booking) {
+    if (isProvider && booking.status == 'confirmed') return true;
+    if (!isProvider && booking.status == 'confirmed') return true;
+    return false;
+  }
+
+  Widget _buildActions(BuildContext context, BookingModel booking) {
+    if (isProvider) {
+      return Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          // Cancel
+          TextButton(
+            onPressed: () => _confirmAction(context, booking.id, 'cancel'),
+            child: Text('Cancel', style: GoogleFonts.inter(color: Colors.redAccent, fontSize: 13)),
+          ),
+          const SizedBox(width: 8),
+          // Mark Completed
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF69F0AE),
+              foregroundColor: Colors.black,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            ),
+            onPressed: () => _updateStatus(context, booking.id, 'completed'),
+            icon: const Icon(Icons.check_rounded, size: 16),
+            label: Text('Mark Completed', style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 13)),
+          ),
+        ],
+      );
+    } else {
+      // Tourist cancel
+      return Align(
+        alignment: Alignment.centerRight,
+        child: OutlinedButton.icon(
+          style: OutlinedButton.styleFrom(
+            foregroundColor: Colors.redAccent,
+            side: const BorderSide(color: Colors.redAccent),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          ),
+          onPressed: () => _confirmAction(context, booking.id, 'cancel'),
+          icon: const Icon(Icons.cancel_outlined, size: 16),
+          label: Text('Cancel Booking', style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 13)),
+        ),
+      );
+    }
+  }
+
+  Widget _infoRow(IconData icon, String text) {
+    return Row(
+      children: [
+        Icon(icon, color: Colors.white54, size: 14),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(text, style: GoogleFonts.inter(color: Colors.white70, fontSize: 13)),
+        ),
+      ],
+    );
+  }
+
   void _updateStatus(BuildContext context, String bookingId, String status) {
     Provider.of<BookingService>(context, listen: false).updateStatus(bookingId, status);
   }
 
-  void _confirmAction(BuildContext context, String bookingId, bool isCancellation, bool isProvider) {
+  void _confirmAction(BuildContext context, String bookingId, String action) {
     showDialog(
       context: context,
       builder: (context) => GlassConfirmationDialog(
-        title: isCancellation ? 'Cancel Booking?' : 'Reject Request?',
-        content: isCancellation 
-          ? 'Are you sure you want to cancel this booking? This action cannot be undone.'
-          : 'Are you sure you want to reject this booking request?',
-        confirmText: isCancellation ? 'Yes, Cancel' : 'Reject',
+        title: 'Cancel Booking?',
+        content: 'Are you sure you want to cancel this booking? This action cannot be undone.',
+        confirmText: 'Yes, Cancel',
         confirmColor: Colors.redAccent,
         onConfirm: () async {
           Navigator.pop(context);
-          // If cancelling (confirmed or pending cancellation), use cancelBooking for full slot cleanup
-          // If just rejecting pending, cancelBooking also works as it sets status 'cancelled' and removes slot (even if not added yet logic handles it)
-          await Provider.of<BookingService>(context, listen: false).cancelBooking(bookingId, isProvider: isProvider);
+          await Provider.of<BookingService>(context, listen: false)
+              .cancelBooking(bookingId, isProvider: isProvider);
         },
       ),
     );
   }
-} // End of _BookingList class
+}

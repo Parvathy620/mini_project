@@ -25,187 +25,132 @@ class BookingScreen extends StatefulWidget {
 }
 
 class _BookingScreenState extends State<BookingScreen> {
-  DateTime _selectedDate = DateTime.now();
-  String? _selectedSlot;
-  String? _selectedService;
+  // State
+  List<DateTime> _selectedDates = [];
   int _numberOfPeople = 1;
+  String? _selectedService;
   bool _isLoading = false;
+  bool _showCalendar = false;
 
   AvailabilityModel? _availability;
-  Map<String, int> _slotCapacities = {};
-  bool _isLoadingSlots = false;
-  List<String> _slots = [];
+  // date key -> available capacity
+  Map<String, int> _capacityMap = {};
+  bool _isCheckingCapacity = false;
 
-  final ScrollController _dateScrollController = ScrollController();
+  static const int _defaultCapacity = 10;
 
   @override
   void initState() {
     super.initState();
-    _fetchAvailability();
+    _fetchAvailabilityAndCapacity();
   }
 
-  @override
-  void dispose() {
-    _dateScrollController.dispose();
-    super.dispose();
-  }
-
-  bool isSameDay(DateTime a, DateTime b) => a.year == b.year && a.month == b.month && a.day == b.day;
-
-  bool isOffDay(DateTime day) {
+  String _dateKey(DateTime d) => '${d.year}-${d.month}-${d.day}';
+  bool _isSameDay(DateTime a, DateTime b) => a.year == b.year && a.month == b.month && a.day == b.day;
+  bool _isOffDay(DateTime day) {
     if (_availability == null) return day.weekday == DateTime.sunday;
     return !_availability!.workingDays.contains(day.weekday);
   }
 
-  void _fetchAvailability() async {
-    _availability = await Provider.of<AvailabilityService>(context, listen: false).getAvailability(widget.provider.uid);
+  Future<void> _fetchAvailabilityAndCapacity() async {
+    _availability = await Provider.of<AvailabilityService>(context, listen: false)
+        .getAvailability(widget.provider.uid);
     if (mounted) {
       setState(() {});
-      _refreshSlots();
+      await _refreshCapacityForRange();
     }
   }
 
-  void _refreshSlots() async {
-    if (_availability == null) return;
-    setState(() => _isLoadingSlots = true);
-    
-    Map<String, int> capacities = {};
-    
-    final startHour = _availability!.startTime.hour;
-    final endHour = _availability!.endTime.hour;
-    final duration = _availability!.slotDurationMinutes;
-    
-    List<String> generatedSlots = [];
-    DateTime currentTime = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day, startHour);
-    DateTime endTime = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day, endHour);
+  Future<void> _refreshCapacityForRange() async {
+    if (!mounted) return;
+    setState(() => _isCheckingCapacity = true);
 
-    bool isBlocked = _availability!.blockedDates.any((d) => isSameDay(d, _selectedDate));
-    
-    if (!isBlocked && !isOffDay(_selectedDate)) {
-      while (currentTime.isBefore(endTime)) {
-        String formatted = DateFormat('HH:mm').format(currentTime);
-        generatedSlots.add(formatted);
-        currentTime = currentTime.add(Duration(minutes: duration));
+    final bookingService = Provider.of<BookingService>(context, listen: false);
+    Map<String, int> updated = {};
+
+    // Check capacity for next 30 days to show on the calendar strip
+    for (int i = 0; i < 30; i++) {
+      final day = DateTime.now().add(Duration(days: i));
+      if (!_isOffDay(day)) {
+        int cap = await bookingService.getAvailableCapacity(
+          providerId: widget.provider.uid,
+          date: day,
+          defaultCapacity: _defaultCapacity,
+        );
+        updated[_dateKey(day)] = cap;
       }
     }
 
-    final bookingService = Provider.of<BookingService>(context, listen: false);
-    for (String slot in generatedSlots) {
-       int cap = await bookingService.getAvailableCapacity(
-         providerId: widget.provider.uid,
-         date: _selectedDate,
-         timeSlot: slot,
-         defaultCapacity: _availability!.defaultSlotCapacity,
-       );
-       capacities[slot] = cap;
-    }
-
-    if (mounted) {
-       setState(() {
-         _slots = generatedSlots;
-         _slotCapacities = capacities;
-         _isLoadingSlots = false;
-         if (_selectedSlot != null && (capacities[_selectedSlot!] ?? 0) < _numberOfPeople) {
-           _selectedSlot = null;
-         }
-       });
-    }
+    if (mounted) setState(() { _capacityMap = updated; _isCheckingCapacity = false; });
   }
 
-  void _onDateChanged(DateTime newDate) {
-    if (isSameDay(newDate, _selectedDate)) return;
-    setState(() {
-       _selectedDate = newDate;
-       _selectedSlot = null;
-    });
-    _refreshSlots();
-  }
+  void _toggleDate(DateTime day) {
+    if (_isOffDay(day)) return;
+    if ((_capacityMap[_dateKey(day)] ?? _defaultCapacity) < 1) return;
 
-  void _onTouristsChanged(int newCount) {
-    if (newCount == _numberOfPeople) return;
     setState(() {
-       _numberOfPeople = newCount;
-       if (_selectedSlot != null && (_slotCapacities[_selectedSlot!] ?? 0) < _numberOfPeople) {
-         _selectedSlot = null; // deselect if no longer valid
-       }
+      if (_selectedDates.any((d) => _isSameDay(d, day))) {
+        _selectedDates.removeWhere((d) => _isSameDay(d, day));
+      } else {
+        _selectedDates.add(day);
+      }
+      _selectedDates.sort();
+
+      // Adjust tourist count to not exceed min capacity across selected dates
+      int minCap = _minCapacityAcrossSelected();
+      if (_numberOfPeople > minCap && minCap > 0) {
+        _numberOfPeople = minCap;
+      }
     });
   }
 
-  void _showFullCalendar() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        decoration: const BoxDecoration(
-          color: Color(0xFF0F172A),
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text('Select Date', style: GoogleFonts.outfit(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 16),
-            TableCalendar(
-                firstDay: DateTime.now(),
-                lastDay: DateTime.now().add(const Duration(days: 90)),
-                focusedDay: _selectedDate,
-                selectedDayPredicate: (day) => isSameDay(_selectedDate, day),
-                onDaySelected: (selectedDay, focusedDay) {
-                  Navigator.pop(context);
-                  _onDateChanged(selectedDay);
-                },
-                enabledDayPredicate: (day) => !isOffDay(day),
-                calendarStyle: CalendarStyle(
-                  defaultTextStyle: GoogleFonts.inter(color: Colors.white),
-                  weekendTextStyle: GoogleFonts.inter(color: Colors.white60),
-                  outsideTextStyle: GoogleFonts.inter(color: Colors.white24),
-                  selectedDecoration: const BoxDecoration(color: Color(0xFF69F0AE), shape: BoxShape.circle),
-                  todayDecoration: BoxDecoration(color: const Color(0xFF69F0AE).withOpacity(0.3), shape: BoxShape.circle),
-                ),
-                headerStyle: HeaderStyle(
-                  titleCentered: true,
-                  formatButtonVisible: false,
-                  titleTextStyle: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold),
-                  leftChevronIcon: const Icon(Icons.chevron_left, color: Colors.white),
-                  rightChevronIcon: const Icon(Icons.chevron_right, color: Colors.white),
-                ),
-            ),
-          ],
-        ),
-      ),
-    );
+  int _minCapacityAcrossSelected() {
+    if (_selectedDates.isEmpty) return _defaultCapacity;
+    int min = _defaultCapacity;
+    for (final d in _selectedDates) {
+      int cap = _capacityMap[_dateKey(d)] ?? _defaultCapacity;
+      if (cap < min) min = cap;
+    }
+    return min < 0 ? 0 : min;
+  }
+
+  double get _basePrice => widget.provider.price > 0 ? widget.provider.price : 1500.0;
+  double get _totalPrice => _basePrice * _numberOfPeople * _selectedDates.length;
+
+  String get _dateRangeLabel {
+    if (_selectedDates.isEmpty) return 'No dates selected';
+    if (_selectedDates.length == 1) return DateFormat('MMM dd, yyyy').format(_selectedDates.first);
+    return '${DateFormat('MMM dd').format(_selectedDates.first)} → ${DateFormat('MMM dd, yyyy').format(_selectedDates.last)}';
   }
 
   Future<void> _processBooking() async {
-    if (_selectedSlot == null) return;
-    
-    final finalServiceName = _selectedService ?? (widget.provider.services.isNotEmpty ? widget.provider.services.first : 'General Entry');
+    if (_selectedDates.isEmpty) return;
+
+    final finalServiceName = _selectedService ??
+        (widget.provider.services.isNotEmpty ? widget.provider.services.first : 'General Entry');
     final bookingService = Provider.of<BookingService>(context, listen: false);
+    final user = Provider.of<AuthService>(context, listen: false).currentUser;
+    if (user == null) return;
 
     setState(() => _isLoading = true);
     try {
-      final user = Provider.of<AuthService>(context, listen: false).currentUser;
-      if (user == null) throw Exception('Login required');
-
-      // 1. Create Hold
+      // 1. Create hold across all dates
       String holdId = bookingService.generateHoldId();
       BookingHoldModel hold = BookingHoldModel(
         id: holdId,
         providerId: widget.provider.uid,
         touristId: user.uid,
-        date: _selectedDate,
-        timeSlot: _selectedSlot!,
+        dates: _selectedDates,
         touristCount: _numberOfPeople,
         expiresAt: DateTime.now().add(const Duration(minutes: 10)),
       );
 
-      bool holdSuccess = await bookingService.createBookingHold(hold, _availability!.defaultSlotCapacity);
+      bool holdSuccess = await bookingService.createBookingHold(hold, _defaultCapacity);
       if (!holdSuccess) {
-         throw Exception('Slot filled up before you could book. Please choose another.');
+        throw Exception('One or more selected dates no longer have enough capacity. Please adjust your selection.');
       }
 
-      // 2. Booking Object
+      // 2. Create confirmed booking (simulated payment success)
       final booking = BookingModel(
         id: bookingService.generateId(),
         touristId: user.uid,
@@ -213,70 +158,62 @@ class _BookingScreenState extends State<BookingScreen> {
         providerId: widget.provider.uid,
         providerName: widget.provider.name,
         serviceName: finalServiceName,
-        bookingDate: _selectedDate,
-        timeSlot: _selectedSlot!,
+        dates: _selectedDates,
         numberOfPeople: _numberOfPeople,
-        totalPrice: widget.provider.price > 0 ? widget.provider.price * _numberOfPeople : 100.0 * _numberOfPeople,
-        status: 'pending',
+        pricePerPerson: _basePrice,
+        totalPrice: _totalPrice,
+        status: 'confirmed',
         createdAt: DateTime.now(),
       );
 
-      // 3. Confirm directly from hold
       await bookingService.createBookingFromHold(booking, holdId);
 
       if (mounted) {
         setState(() => _isLoading = false);
-        _selectedSlot = null;
-        
         showDialog(
           context: context,
           barrierDismissible: false,
           builder: (context) => BookingReceiptDialog(
             bookings: [booking],
             onClose: () {
-              Navigator.pop(context); 
-              Navigator.pop(context); 
+              Navigator.pop(context);
+              Navigator.pop(context);
             },
           ),
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
-        _refreshSlots();
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e'), backgroundColor: Colors.redAccent));
+        _refreshCapacityForRange();
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
-  // --- UI Builders ---
+  // ------- UI Builders -------
 
-  Widget _buildStepHeader(String step, String title) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: const Color(0xFF69F0AE).withOpacity(0.2),
-              shape: BoxShape.circle,
-            ),
-            child: Text(
-              step,
-              style: GoogleFonts.outfit(color: const Color(0xFF69F0AE), fontWeight: FontWeight.bold, fontSize: 14),
-            ),
+  Widget _buildSectionHeader(String step, String title) {
+    return Row(
+      children: [
+        Container(
+          width: 30, height: 30,
+          decoration: BoxDecoration(
+            color: const Color(0xFF69F0AE).withOpacity(0.2),
+            shape: BoxShape.circle,
           ),
-          const SizedBox(width: 12),
-          Text(title, style: GoogleFonts.outfit(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600)),
-        ],
-      ),
+          child: Center(
+            child: Text(step, style: GoogleFonts.outfit(color: const Color(0xFF69F0AE), fontWeight: FontWeight.bold, fontSize: 13)),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Text(title, style: GoogleFonts.outfit(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600)),
+      ],
     );
   }
 
-  Widget _buildStepCard({required Widget child}) {
+  Widget _buildCard({required Widget child}) {
     return LuxuryGlass(
       padding: const EdgeInsets.all(20),
       borderRadius: BorderRadius.circular(24),
@@ -285,89 +222,168 @@ class _BookingScreenState extends State<BookingScreen> {
     );
   }
 
-  Widget _buildDateSelector() {
-    return _buildStepCard(
+  Widget _buildDayChip(DateTime day) {
+    bool isSelected = _selectedDates.any((d) => _isSameDay(d, day));
+    bool isOff = _isOffDay(day);
+    int cap = _capacityMap[_dateKey(day)] ?? _defaultCapacity;
+    bool isFull = cap <= 0;
+
+    Color bg = isSelected
+        ? const Color(0xFF69F0AE)
+        : (isOff || isFull ? Colors.white.withOpacity(0.02) : Colors.white.withOpacity(0.06));
+    Color textColor = isSelected ? Colors.black : (isOff || isFull ? Colors.white24 : Colors.white);
+
+    return GestureDetector(
+      onTap: (isOff || isFull) ? null : () => _toggleDate(day),
+      child: Container(
+        width: 62,
+        margin: const EdgeInsets.only(right: 10),
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: isSelected ? const Color(0xFF69F0AE) : Colors.white12),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(DateFormat('MMM').format(day), style: GoogleFonts.inter(fontSize: 9, fontWeight: FontWeight.w600, color: isSelected ? Colors.black54 : Colors.white54)),
+              const SizedBox(height: 2),
+              Text('${day.day}', style: GoogleFonts.outfit(fontSize: 20, fontWeight: FontWeight.bold, color: textColor)),
+              Text(DateFormat('E').format(day), style: GoogleFonts.inter(fontSize: 10, color: textColor)),
+              if (!isOff) ...[
+                const SizedBox(height: 4),
+                if (isFull)
+                  Text('Full', style: GoogleFonts.inter(fontSize: 8, color: Colors.redAccent))
+                else if (cap <= 3)
+                  Text('$cap left', style: GoogleFonts.inter(fontSize: 8, color: Colors.orangeAccent, fontWeight: FontWeight.bold))
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDateStep() {
+    return _buildCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _buildStepHeader('1', 'Select Date'),
-              IconButton(
-                icon: const Icon(Icons.calendar_month, color: Colors.white70),
-                onPressed: _showFullCalendar,
-                tooltip: 'View Full Calendar',
+              _buildSectionHeader('1', 'Select Dates'),
+              Row(
+                children: [
+                  if (_isCheckingCapacity)
+                    const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF69F0AE))),
+                  const SizedBox(width: 8),
+                  GestureDetector(
+                    onTap: () => setState(() => _showCalendar = !_showCalendar),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.08),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.calendar_month, color: Colors.white70, size: 14),
+                          const SizedBox(width: 4),
+                          Text(_showCalendar ? 'Hide' : 'Calendar', style: GoogleFonts.inter(color: Colors.white70, fontSize: 12)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
-          SizedBox(
-            height: 90,
-            child: ListView.builder(
-              controller: _dateScrollController,
-              scrollDirection: Axis.horizontal,
-              itemCount: 14, // show next 14 days initially
-              itemBuilder: (context, index) {
-                DateTime day = DateTime.now().add(Duration(days: index));
-                bool isSelected = isSameDay(day, _selectedDate);
-                bool available = !isOffDay(day);
+          const SizedBox(height: 16),
 
-                return GestureDetector(
-                  onTap: available ? () => _onDateChanged(day) : null,
-                  child: Container(
-                    width: 65,
-                    margin: const EdgeInsets.only(right: 12),
-                    decoration: BoxDecoration(
-                      color: isSelected ? const Color(0xFF69F0AE) : (available ? Colors.white.withOpacity(0.05) : Colors.black12),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: isSelected ? const Color(0xFF69F0AE) : Colors.white12),
-                    ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          DateFormat('MMM').format(day).toUpperCase(),
-                          style: GoogleFonts.inter(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w600,
-                            color: isSelected ? Colors.black54 : (available ? Colors.white54 : Colors.white24),
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          '${day.day}',
-                          style: GoogleFonts.outfit(
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold,
-                            color: isSelected ? Colors.black : (available ? Colors.white : Colors.white24),
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          DateFormat('E').format(day),
-                          style: GoogleFonts.inter(
-                            fontSize: 12,
-                            color: isSelected ? Colors.black87 : (available ? Colors.white : Colors.white24),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
+          // Horizontal strip
+          SizedBox(
+            height: 110,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              itemCount: 30,
+              itemBuilder: (context, index) {
+                final day = DateTime.now().add(Duration(days: index));
+                return _buildDayChip(day);
               },
             ),
           ),
+
+          // Expandable calendar
+          if (_showCalendar) ...[
+            const SizedBox(height: 16),
+            TableCalendar(
+              firstDay: DateTime.now(),
+              lastDay: DateTime.now().add(const Duration(days: 180)),
+              focusedDay: _selectedDates.isNotEmpty ? _selectedDates.last : DateTime.now(),
+              selectedDayPredicate: (day) => _selectedDates.any((d) => _isSameDay(d, day)),
+              onDaySelected: (selected, focused) => _toggleDate(selected),
+              enabledDayPredicate: (day) {
+                if (_isOffDay(day)) return false;
+                int cap = _capacityMap[_dateKey(day)] ?? _defaultCapacity;
+                return cap > 0;
+              },
+              calendarStyle: CalendarStyle(
+                defaultTextStyle: GoogleFonts.inter(color: Colors.white),
+                weekendTextStyle: GoogleFonts.inter(color: Colors.white60),
+                outsideTextStyle: GoogleFonts.inter(color: Colors.white24),
+                disabledTextStyle: GoogleFonts.inter(color: Colors.white24),
+                selectedDecoration: const BoxDecoration(color: Color(0xFF69F0AE), shape: BoxShape.circle),
+                todayDecoration: BoxDecoration(color: const Color(0xFF69F0AE).withOpacity(0.3), shape: BoxShape.circle),
+              ),
+              headerStyle: HeaderStyle(
+                titleCentered: true,
+                formatButtonVisible: false,
+                titleTextStyle: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold),
+                leftChevronIcon: const Icon(Icons.chevron_left, color: Colors.white),
+                rightChevronIcon: const Icon(Icons.chevron_right, color: Colors.white),
+              ),
+            ),
+          ],
+
+          if (_selectedDates.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: const Color(0xFF69F0AE).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFF69F0AE).withOpacity(0.3)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.check_circle_outline, color: Color(0xFF69F0AE), size: 16),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      '${_selectedDates.length} Day${_selectedDates.length > 1 ? 's' : ''} Selected  •  $_dateRangeLabel',
+                      style: GoogleFonts.inter(color: const Color(0xFF69F0AE), fontSize: 13, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
-      )
+      ),
     );
   }
 
-  Widget _buildTouristStepper() {
-    return _buildStepCard(
+  Widget _buildTouristStep() {
+    int maxCap = _minCapacityAcrossSelected();
+    return _buildCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildStepHeader('2', 'Number of Tourists'),
+          _buildSectionHeader('2', 'Number of Tourists'),
+          const SizedBox(height: 16),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             decoration: BoxDecoration(
@@ -380,189 +396,105 @@ class _BookingScreenState extends State<BookingScreen> {
               children: [
                 IconButton(
                   icon: const Icon(Icons.remove, color: Colors.white),
-                  onPressed: () {
-                    if (_numberOfPeople > 1) _onTouristsChanged(_numberOfPeople - 1);
-                  },
+                  onPressed: _numberOfPeople > 1 ? () => setState(() => _numberOfPeople--) : null,
                 ),
-                Text(
-                  '$_numberOfPeople',
-                  style: GoogleFonts.outfit(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
+                Column(
+                  children: [
+                    Text('$_numberOfPeople', style: GoogleFonts.outfit(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
+                    if (maxCap > 0)
+                      Text('Max: $maxCap', style: GoogleFonts.inter(color: Colors.white54, fontSize: 10)),
+                  ],
                 ),
                 IconButton(
                   icon: const Icon(Icons.add, color: Colors.white),
-                  onPressed: () {
-                     // Can cap at max capacity if known, else let them choose and block slot later
-                    _onTouristsChanged(_numberOfPeople + 1);
-                  },
+                  onPressed: _numberOfPeople < maxCap ? () => setState(() => _numberOfPeople++) : null,
                 ),
               ],
             ),
           ),
           const SizedBox(height: 16),
-          // Service Selection (if any)
+          // Service dropdown
           StreamBuilder<List<CategoryModel>>(
-             stream: Provider.of<DataService>(context, listen: false).getCategories(),
-             builder: (context, snapshot) {
-               if (!snapshot.hasData) return const SizedBox.shrink();
-               final providerCategories = snapshot.data!
-                   .where((c) => widget.provider.categoryIds.contains(c.id))
-                   .map((c) => c.name).toList();
-
-               if (providerCategories.isEmpty) providerCategories.add('General Service');
-               if (_selectedService == null) {
-                 WidgetsBinding.instance.addPostFrameCallback((_) {
-                   if (mounted) setState(() => _selectedService = providerCategories.first);
-                 });
-               }
-
-               return Container(
-                 padding: const EdgeInsets.symmetric(horizontal: 16),
-                 decoration: BoxDecoration(
-                   color: Colors.white.withOpacity(0.05),
-                   borderRadius: BorderRadius.circular(16),
-                 ),
-                 child: DropdownButtonHideUnderline(
-                   child: DropdownButton<String>(
-                     value: _selectedService,
-                     isExpanded: true,
-                     dropdownColor: const Color(0xFF022C22),
-                     icon: const Icon(Icons.keyboard_arrow_down, color: Colors.white70),
-                     style: GoogleFonts.inter(color: Colors.white, fontSize: 14),
-                     onChanged: (String? val) { if (val != null) setState(() => _selectedService = val); },
-                     items: providerCategories.map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(),
-                   ),
-                 ),
-               );
-             }
-          ),
-        ],
-      )
-    );
-  }
-
-  Widget _buildTimeSlots() {
-    return _buildStepCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _buildStepHeader('3', 'Select Time Slot'),
-              if (_isLoadingSlots) const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF69F0AE))),
-            ],
-          ),
-          if (_slots.isEmpty && !_isLoadingSlots)
-             Text('No slots available on this day.', style: GoogleFonts.inter(color: Colors.white54))
-          else
-            Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              children: _slots.map((slot) {
-                int capacity = _slotCapacities[slot] ?? 0;
-                bool isSelected = _selectedSlot == slot;
-                bool isAvailable = capacity >= _numberOfPeople;
-                bool isLow = isAvailable && (capacity - _numberOfPeople) <= 3; // Running low
-
-                return GestureDetector(
-                  onTap: isAvailable ? () => setState(() => _selectedSlot = slot) : null,
-                  child: Container(
-                    width: (MediaQuery.of(context).size.width - 80) / 3, // 3 columns approx
-                    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-                    decoration: BoxDecoration(
-                      color: isSelected 
-                        ? const Color(0xFF69F0AE) 
-                        : (isAvailable ? Colors.white.withOpacity(0.05) : Colors.white.withOpacity(0.02)),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: isSelected 
-                           ? const Color(0xFF69F0AE) 
-                           : (isAvailable ? Colors.white12 : Colors.transparent),
-                      ),
-                    ),
-                    child: Column(
-                      children: [
-                        Text(
-                          slot,
-                          style: GoogleFonts.outfit(
-                            fontSize: 16,
-                            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                            color: isSelected ? Colors.black : (isAvailable ? Colors.white : Colors.white38),
-                          ),
-                        ),
-                        if (isAvailable && isLow) ...[
-                          const SizedBox(height: 4),
-                          Text(
-                            'Only $capacity left',
-                            style: GoogleFonts.inter(
-                              fontSize: 9,
-                              fontWeight: FontWeight.bold,
-                              color: isSelected ? Colors.deepOrange : Colors.orangeAccent,
-                            ),
-                          ),
-                        ] else if (!isAvailable) ...[
-                          const SizedBox(height: 4),
-                          Text(
-                            'Full',
-                            style: GoogleFonts.inter(
-                              fontSize: 9,
-                              color: Colors.white24,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
+            stream: Provider.of<DataService>(context, listen: false).getCategories(),
+            builder: (context, snapshot) {
+              if (!snapshot.hasData) return const SizedBox.shrink();
+              final providerCategories = snapshot.data!
+                  .where((c) => widget.provider.categoryIds.contains(c.id))
+                  .map((c) => c.name).toList();
+              if (providerCategories.isEmpty) providerCategories.add('General Service');
+              if (_selectedService == null) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted) setState(() => _selectedService = providerCategories.first);
+                });
+              }
+              return Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.05),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    value: _selectedService,
+                    isExpanded: true,
+                    dropdownColor: const Color(0xFF022C22),
+                    icon: const Icon(Icons.keyboard_arrow_down, color: Colors.white70),
+                    style: GoogleFonts.inter(color: Colors.white, fontSize: 14),
+                    onChanged: (v) { if (v != null) setState(() => _selectedService = v); },
+                    items: providerCategories.map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(),
                   ),
-                );
-              }).toList(),
-            ),
+                ),
+              );
+            },
+          ),
         ],
-      )
+      ),
     );
   }
 
-  Widget _buildSummary() {
-    double basePrice = widget.provider.price > 0 ? widget.provider.price : 100.0;
-    double totalPrice = basePrice * _numberOfPeople;
-
-    return _buildStepCard(
+  Widget _buildSummaryStep() {
+    if (_selectedDates.isEmpty) return const SizedBox.shrink();
+    return _buildCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildStepHeader('4', 'Price Summary'),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text('Date:', style: GoogleFonts.inter(color: Colors.white70)),
-              Text(DateFormat('MMM dd, yyyy').format(_selectedDate), style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold)),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text('Time:', style: GoogleFonts.inter(color: Colors.white70)),
-              Text(_selectedSlot ?? 'Not selected', style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold)),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text('Tourists:', style: GoogleFonts.inter(color: Colors.white70)),
-              Text('$_numberOfPeople', style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold)),
-            ],
-          ),
+          _buildSectionHeader('3', 'Booking Summary'),
+          const SizedBox(height: 16),
+          _summaryRow('Dates', _dateRangeLabel),
+          _summaryRow('Total Days', '${_selectedDates.length} Day${_selectedDates.length > 1 ? 's' : ''}'),
+          _summaryRow('Tourists', '$_numberOfPeople Person${_numberOfPeople > 1 ? 's' : ''}'),
+          _summaryRow('Price Per Person / Day', '₹${_basePrice.toStringAsFixed(0)}'),
           const Divider(color: Colors.white24, height: 24),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('$_numberOfPeople × \u{20B9}${basePrice.toStringAsFixed(0)}', style: GoogleFonts.inter(color: Colors.white70)),
-              Text('\u{20B9}${totalPrice.toStringAsFixed(0)}', style: GoogleFonts.outfit(color: const Color(0xFF69F0AE), fontSize: 22, fontWeight: FontWeight.bold)),
+              Text(
+                '$_numberOfPeople × ₹${_basePrice.toStringAsFixed(0)} × ${_selectedDates.length} Days',
+                style: GoogleFonts.inter(color: Colors.white60, fontSize: 12),
+              ),
+              Text(
+                '₹${_totalPrice.toStringAsFixed(0)}',
+                style: GoogleFonts.outfit(color: const Color(0xFF69F0AE), fontSize: 22, fontWeight: FontWeight.bold),
+              ),
             ],
           ),
         ],
-      )
+      ),
+    );
+  }
+
+  Widget _summaryRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: GoogleFonts.inter(color: Colors.white60, fontSize: 13)),
+          Expanded(
+            child: Text(value, textAlign: TextAlign.end, style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13)),
+          ),
+        ],
+      ),
     );
   }
 
@@ -580,71 +512,73 @@ class _BookingScreenState extends State<BookingScreen> {
       body: AppBackground(
         child: SafeArea(
           child: ListView(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 120),
             children: [
-              // Provider Info
+              // Provider Header
               Center(
                 child: Column(
                   children: [
                     CircleAvatar(
-                      radius: 40,
+                      radius: 36,
                       backgroundImage: NetworkImage(
-                        (widget.provider.googleDriveImageUrl.isNotEmpty)
+                        widget.provider.googleDriveImageUrl.isNotEmpty
                             ? widget.provider.googleDriveImageUrl
-                            : (widget.provider.profileImageUrl.isNotEmpty 
-                                ? widget.provider.profileImageUrl 
+                            : (widget.provider.profileImageUrl.isNotEmpty
+                                ? widget.provider.profileImageUrl
                                 : 'https://via.placeholder.com/150'),
                       ),
                     ),
-                    const SizedBox(height: 12),
-                    Text(widget.provider.name, style: GoogleFonts.outfit(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white)),
+                    const SizedBox(height: 10),
+                    Text(widget.provider.name, style: GoogleFonts.outfit(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
+                    Text(widget.provider.description.isNotEmpty ? widget.provider.description : 'Full Day Experience', style: GoogleFonts.inter(color: Colors.white54, fontSize: 13)),
                   ],
                 ),
               ),
-              const SizedBox(height: 32),
+              const SizedBox(height: 28),
 
-              _buildDateSelector(),
-              const SizedBox(height: 16),
-              
-              _buildTouristStepper(),
+              _buildDateStep(),
               const SizedBox(height: 16),
 
-              _buildTimeSlots(),
+              _buildTouristStep(),
               const SizedBox(height: 16),
 
-              if (_selectedSlot != null) _buildSummary(),
-              const SizedBox(height: 100), // spacing for bottom nav
+              _buildSummaryStep(),
             ],
           ),
         ),
       ),
-      bottomNavigationBar: _selectedSlot != null
-        ? Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: const Color(0xFF0F172A).withOpacity(0.95),
-              border: Border(top: BorderSide(color: Colors.white.withOpacity(0.1))),
-            ),
-            child: SafeArea(
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF69F0AE),
-                  foregroundColor: Colors.black,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                  elevation: 0,
-                ),
-                onPressed: _isLoading ? null : _processBooking,
-                child: _isLoading 
-                  ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                  : Text(
-                      'Proceed to Payment', 
-                      style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 16)
-                    ),
+      bottomNavigationBar: _selectedDates.isNotEmpty
+          ? Container(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFF0F172A).withOpacity(0.95),
+                border: Border(top: BorderSide(color: Colors.white.withOpacity(0.1))),
               ),
-            ),
-          )
-        : null,
+              child: SafeArea(
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF69F0AE),
+                    foregroundColor: Colors.black,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    elevation: 0,
+                  ),
+                  onPressed: _isLoading ? null : _processBooking,
+                  child: _isLoading
+                      ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                      : Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.payment_rounded, size: 20),
+                            const SizedBox(width: 8),
+                            Text('Proceed to Payment  •  ₹${_totalPrice.toStringAsFixed(0)}',
+                                style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 16)),
+                          ],
+                        ),
+                ),
+              ),
+            )
+          : null,
     );
   }
 }

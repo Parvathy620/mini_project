@@ -27,7 +27,6 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> {
   // Filters State
   List<String> _selectedDistricts = [];
   List<String> _selectedCategories = [];
-  RangeValues _priceRange = const RangeValues(0, 10000); // Placeholder relative range if price was available
   bool _onlyAvailable = false;
 
   // Mock Data for Filters (In a real app, fetch unique values from DB)
@@ -66,13 +65,13 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> {
         availableCategories: _allCategories,
         selectedDistricts: _selectedDistricts,
         selectedCategories: _selectedCategories,
-        priceRange: _priceRange,
+        priceRange: const RangeValues(0, 50000),
         onlyAvailable: _onlyAvailable,
+        showPriceFilter: false,
         onApply: (districts, categories, price, available) {
           setState(() {
             _selectedDistricts = districts;
             _selectedCategories = categories;
-            _priceRange = price;
             _onlyAvailable = available;
           });
           Navigator.pop(context);
@@ -81,7 +80,6 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> {
           setState(() {
             _selectedDistricts = [];
             _selectedCategories = [];
-            _priceRange = const RangeValues(0, 10000);
             _onlyAvailable = false;
           });
           Navigator.pop(context);

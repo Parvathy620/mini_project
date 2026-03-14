@@ -33,7 +33,8 @@ class _SPEditProfileScreenState extends State<SPEditProfileScreen> {
   late TextEditingController _descriptionController;
   late TextEditingController _experienceController;
   late TextEditingController _priceRangeController;
-  late TextEditingController _driveLinkController; // New Controller
+  late TextEditingController _priceController; // Numeric price per person
+  late TextEditingController _driveLinkController;
 
   String _locationName = '';
   String _destinationId = '';
@@ -62,6 +63,9 @@ class _SPEditProfileScreenState extends State<SPEditProfileScreen> {
     _fetchCategoryNames(); 
 
     _priceRangeController = TextEditingController(text: widget.profile.priceRange);
+    _priceController = TextEditingController(
+      text: widget.profile.price > 0 ? widget.profile.price.toStringAsFixed(0) : '',
+    );
     // Check if we already have a drive link image, if so, collapse the input
     if (widget.profile.googleDriveImageUrl.isNotEmpty) {
       _showLinkInput = false;
@@ -111,6 +115,7 @@ class _SPEditProfileScreenState extends State<SPEditProfileScreen> {
     _descriptionController.dispose();
     _experienceController.dispose();
     _priceRangeController.dispose();
+    _priceController.dispose();
     _driveLinkController.dispose();
     super.dispose();
   }
@@ -134,7 +139,8 @@ class _SPEditProfileScreenState extends State<SPEditProfileScreen> {
       createdAt: widget.profile.createdAt,
       rating: widget.profile.rating,
       priceRange: _priceRangeController.text.trim(),
-      services: [], // Cleared services as UI is removed
+      price: double.tryParse(_priceController.text.trim()) ?? widget.profile.price,
+      services: [],
       profileImageUrl: widget.profile.profileImageUrl, 
       isAvailable: widget.profile.isAvailable,
       description: _descriptionController.text.trim(),
@@ -255,9 +261,24 @@ class _SPEditProfileScreenState extends State<SPEditProfileScreen> {
                 const SizedBox(height: 15),
                 _buildTextField(_experienceController, "Experience (Years)", icon: Icons.work_history),
                 const SizedBox(height: 15),
-                _buildTextField(_priceRangeController, "Price Range (₹)", icon: Icons.attach_money),
-                
-                // Removed Services Section entirely
+                _buildTextField(_priceRangeController, "Price Range (e.g. Budget / Mid / Premium)", icon: Icons.attach_money),
+                const SizedBox(height: 15),
+                // Numeric Service Price Field
+                _buildTextField(
+                  _priceController,
+                  "Service Price (₹ per person per day)",
+                  icon: Icons.currency_rupee_rounded,
+                  hint: 'e.g. 1500',
+                  keyboardType: TextInputType.number,
+                  validator: (v) {
+                    if (v == null || v.trim().isEmpty) return null; // Optional
+                    final parsed = double.tryParse(v.trim());
+                    if (parsed == null) return 'Enter a valid number';
+                    if (parsed < 100) return 'Minimum price is ₹100';
+                    if (parsed > 50000) return 'Maximum price is ₹50,000';
+                    return null;
+                  },
+                ),
                 const SizedBox(height: 100),
               ],
             ),
@@ -399,7 +420,7 @@ class _SPEditProfileScreenState extends State<SPEditProfileScreen> {
     );
   }
 
-  Widget _buildTextField(TextEditingController controller, String label, {IconData? icon, int maxLines = 1, String? hint, String? Function(String?)? validator}) {
+  Widget _buildTextField(TextEditingController controller, String label, {IconData? icon, int maxLines = 1, String? hint, TextInputType? keyboardType, String? Function(String?)? validator}) {
     return GlassContainer(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       borderRadius: BorderRadius.circular(12),
@@ -408,6 +429,7 @@ class _SPEditProfileScreenState extends State<SPEditProfileScreen> {
         controller: controller,
         style: const TextStyle(color: Colors.white),
         maxLines: maxLines,
+        keyboardType: keyboardType,
         decoration: InputDecoration(
           labelText: label,
           hintText: hint,

@@ -17,9 +17,18 @@ class BookingReceiptDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final firstBooking = bookings.first;
-    final aggregatedPrice = bookings.fold<double>(0, (sum, b) => sum + b.totalPrice);
-    final datesFormatted = bookings.map((b) => DateFormat('MMM dd').format(b.bookingDate)).join(', ');
+    final booking = bookings.first;
+    final double totalPrice = bookings.fold<double>(0, (sum, b) => sum + b.totalPrice);
+    final List<DateTime> allDates = bookings.expand((b) => b.dates).toList()..sort();
+
+    String dateRangeText;
+    if (allDates.isEmpty) {
+      dateRangeText = 'N/A';
+    } else if (allDates.length == 1) {
+      dateRangeText = DateFormat('MMM dd, yyyy').format(allDates.first);
+    } else {
+      dateRangeText = '${DateFormat('MMM dd').format(allDates.first)} → ${DateFormat('MMM dd, yyyy').format(allDates.last)}';
+    }
 
     return Dialog(
       backgroundColor: Colors.transparent,
@@ -47,20 +56,16 @@ class BookingReceiptDialog extends StatelessWidget {
                       child: const Icon(Icons.check_rounded, color: Colors.greenAccent, size: 40),
                     ),
                     const SizedBox(height: 20),
-                    
-                    // Title
+
                     Text(
                       'Booking Confirmed!',
-                      style: GoogleFonts.outfit(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
+                      style: GoogleFonts.outfit(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 6),
                     Text(
-                      'Here is your booking receipt',
-                      style: GoogleFonts.inter(color: Colors.white60),
+                      'Payment successful. Here is your receipt.',
+                      style: GoogleFonts.inter(color: Colors.white60, fontSize: 13),
+                      textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 24),
 
@@ -74,26 +79,27 @@ class BookingReceiptDialog extends StatelessWidget {
                       ),
                       child: Column(
                         children: [
-                          _buildRow('Booking ID', '#${firstBooking.id.substring(0, 8)}'),
-                          const Divider(color: Colors.white10),
-                          _buildRow('Provider', firstBooking.providerName),
-                          const Divider(color: Colors.white10),
-                          _buildRow('Service', firstBooking.serviceName),
-                          const Divider(color: Colors.white10),
-                          _buildRow('Date(s)', datesFormatted),
-                          const Divider(color: Colors.white10),
-                          _buildRow('Time', firstBooking.timeSlot),
-                          const Divider(color: Colors.white10),
-                          _buildRow('Number of People', '${firstBooking.numberOfPeople}', isBold: false),
-                          const Divider(color: Colors.white10),
-                          _buildRow('Total Price', '\₹${aggregatedPrice.toStringAsFixed(2)}', isBold: true),
+                          _buildRow('Booking ID', '#${booking.id.substring(0, 8).toUpperCase()}'),
+                          const Divider(color: Colors.white10, height: 16),
+                          _buildRow('Provider', booking.providerName),
+                          const Divider(color: Colors.white10, height: 16),
+                          _buildRow('Service', booking.serviceName),
+                          const Divider(color: Colors.white10, height: 16),
+                          _buildRow('Dates', dateRangeText),
+                          const Divider(color: Colors.white10, height: 16),
+                          _buildRow('Total Days', '${allDates.length} Day${allDates.length > 1 ? 's' : ''}'),
+                          const Divider(color: Colors.white10, height: 16),
+                          _buildRow('Tourists', '${booking.numberOfPeople}'),
+                          const Divider(color: Colors.white10, height: 16),
+                          _buildRow('Price / Person / Day', '₹${booking.pricePerPerson.toStringAsFixed(0)}'),
+                          const Divider(color: Colors.white10, height: 16),
+                          _buildRow('Total Paid', '₹${totalPrice.toStringAsFixed(0)}', isBold: true),
                         ],
                       ),
                     ),
 
                     const SizedBox(height: 24),
 
-                    // Buttons
                     Row(
                       children: [
                         Expanded(
@@ -106,10 +112,7 @@ class BookingReceiptDialog extends StatelessWidget {
                                 side: BorderSide(color: Colors.white.withOpacity(0.2)),
                               ),
                             ),
-                            child: Text(
-                              'Close',
-                              style: GoogleFonts.outfit(color: Colors.white),
-                            ),
+                            child: Text('Close', style: GoogleFonts.outfit(color: Colors.white)),
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -123,7 +126,7 @@ class BookingReceiptDialog extends StatelessWidget {
                                 await PdfService().generateAndDownloadReceipt(bookings);
                               } catch (e) {
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text('Error generating PDF: $e'), backgroundColor: Colors.red),
+                                  SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
                                 );
                               }
                             },
@@ -134,10 +137,7 @@ class BookingReceiptDialog extends StatelessWidget {
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                               elevation: 0,
                             ),
-                            child: Text(
-                              'Download',
-                              style: GoogleFonts.outfit(fontWeight: FontWeight.bold),
-                            ),
+                            child: Text('Download', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
                           ),
                         ),
                       ],
@@ -153,30 +153,24 @@ class BookingReceiptDialog extends StatelessWidget {
   }
 
   Widget _buildRow(String label, String value, {bool isBold = false}) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            label,
-            style: GoogleFonts.inter(color: Colors.white60, fontSize: 13),
-          ),
-          Expanded(
-            child: Text(
-              value,
-              textAlign: TextAlign.end,
-              style: GoogleFonts.inter(
-                color: isBold ? const Color(0xFF69F0AE) : Colors.white,
-                fontWeight: isBold ? FontWeight.bold : FontWeight.w500,
-                fontSize: 14,
-              ),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(label, style: GoogleFonts.inter(color: Colors.white60, fontSize: 13)),
+        Expanded(
+          child: Text(
+            value,
+            textAlign: TextAlign.end,
+            style: GoogleFonts.inter(
+              color: isBold ? const Color(0xFF69F0AE) : Colors.white,
+              fontWeight: isBold ? FontWeight.bold : FontWeight.w500,
+              fontSize: isBold ? 16 : 14,
             ),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
