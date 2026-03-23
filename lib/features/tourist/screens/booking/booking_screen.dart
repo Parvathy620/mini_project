@@ -15,6 +15,7 @@ import '../../../../core/services/auth_service.dart';
 import '../../../../core/widgets/app_background.dart';
 import '../../../../core/widgets/luxury_glass.dart';
 import '../../widgets/booking_receipt_dialog.dart';
+import 'package:razorpay_flutter/razorpay_flutter.dart';
 
 class BookingScreen extends StatefulWidget {
   final ServiceProviderModel provider;
@@ -32,6 +33,10 @@ class _BookingScreenState extends State<BookingScreen> {
   bool _isLoading = false;
   bool _showCalendar = false;
 
+  late Razorpay _razorpay;
+  String? _currentHoldId;
+  BookingModel? _pendingBooking;
+
   AvailabilityModel? _availability;
   // date key -> available capacity
   Map<String, int> _capacityMap = {};
@@ -42,7 +47,72 @@ class _BookingScreenState extends State<BookingScreen> {
   @override
   void initState() {
     super.initState();
+    _razorpay = Razorpay();
+    _razorpay.on(Razorpay.EVENT_PAYMENT_SUCCESS, _handlePaymentSuccess);
+    _razorpay.on(Razorpay.EVENT_PAYMENT_ERROR, _handlePaymentError);
+    _razorpay.on(Razorpay.EVENT_EXTERNAL_WALLET, _handleExternalWallet);
     _fetchAvailabilityAndCapacity();
+  }
+
+  @override
+  void dispose() {
+    _razorpay.clear();
+    super.dispose();
+  }
+
+  void _handlePaymentSuccess(PaymentSuccessResponse response) async {
+    if (_currentHoldId == null || _pendingBooking == null) return;
+    
+    setState(() => _isLoading = true);
+    try {
+      final bookingService = Provider.of<BookingService>(context, listen: false);
+      
+      // confirm booking
+      await bookingService.createBookingFromHold(_pendingBooking!, _currentHoldId!);
+
+      if (mounted) {
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => BookingReceiptDialog(
+            bookings: [_pendingBooking!],
+            onClose: () {
+              Navigator.pop(context);
+              Navigator.pop(context);
+            },
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error confirming booking: $e'), backgroundColor: Colors.redAccent));
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _currentHoldId = null;
+          _pendingBooking = null;
+        });
+      }
+    }
+  }
+
+  void _handlePaymentError(PaymentFailureResponse response) {
+    if (mounted) {
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Payment Failed: ${response.message ?? "Unknown error"}'), backgroundColor: Colors.redAccent)
+      );
+    }
+  }
+
+  void _handleExternalWallet(ExternalWalletResponse response) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('External Wallet Selected: ${response.walletName}'), backgroundColor: Colors.orangeAccent)
+      );
+    }
   }
 
   String _dateKey(DateTime d) => '${d.year}-${d.month}-${d.day}';
@@ -150,8 +220,9 @@ class _BookingScreenState extends State<BookingScreen> {
         throw Exception('One or more selected dates no longer have enough capacity. Please adjust your selection.');
       }
 
-      // 2. Create confirmed booking (simulated payment success)
-      final booking = BookingModel(
+      // 2. Prepare pending booking and open Razorpay checkout
+      _currentHoldId = holdId;
+      _pendingBooking = BookingModel(
         id: bookingService.generateId(),
         touristId: user.uid,
         touristName: user.displayName ?? user.email?.split('@')[0] ?? 'Tourist',
@@ -166,30 +237,34 @@ class _BookingScreenState extends State<BookingScreen> {
         createdAt: DateTime.now(),
       );
 
-      await bookingService.createBookingFromHold(booking, holdId);
+      var options = {
+        'key': 'rzp_test_SSxYjAD0L3jbpu', // Using test placeholder
+        'amount': (_totalPrice * 100).toInt(), // Amount in paisa
+        'name': widget.provider.name,
+        'description': 'Payment for $finalServiceName',
+        'prefill': {
+          'contact': '', // Optional: add user phone if available
+          'email': user.email ?? '',
+        },
+        'theme': {
+          'color': '#69F0AE' // Matches the app's accent color
+        }
+      };
 
-      if (mounted) {
-        setState(() => _isLoading = false);
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (context) => BookingReceiptDialog(
-            bookings: [booking],
-            onClose: () {
-              Navigator.pop(context);
-              Navigator.pop(context);
-            },
-          ),
-        );
+      try {
+        _razorpay.open(options);
+      } catch (e) {
+        throw Exception('Error starting payment: $e');
       }
+
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e'), backgroundColor: Colors.redAccent));
         _refreshCapacityForRange();
+        setState(() => _isLoading = false);
       }
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
     }
+    // We do not set _isLoading = false here in finally, because we wait for Razorpay UI callback
   }
 
   // ------- UI Builders -------
