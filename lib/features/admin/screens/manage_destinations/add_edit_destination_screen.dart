@@ -17,6 +17,8 @@ class AddEditDestinationScreen extends StatefulWidget {
   final bool? isAvailable;
   final double? currentLatitude;
   final double? currentLongitude;
+  final String? currentOpeningTime;
+  final String? currentClosingTime;
 
   const AddEditDestinationScreen({
     super.key, 
@@ -28,6 +30,8 @@ class AddEditDestinationScreen extends StatefulWidget {
     this.isAvailable,
     this.currentLatitude,
     this.currentLongitude,
+    this.currentOpeningTime,
+    this.currentClosingTime,
   });
 
   @override
@@ -41,6 +45,8 @@ class _AddEditDestinationScreenState extends State<AddEditDestinationScreen> {
   final _driveLinkController = TextEditingController();
   final _latController = TextEditingController();
   final _lngController = TextEditingController();
+  final _openingTimeController = TextEditingController();
+  final _closingTimeController = TextEditingController();
   String? _selectedDistrict;
   bool _isLoading = false;
   String? _previewImageUrl;
@@ -73,6 +79,8 @@ class _AddEditDestinationScreenState extends State<AddEditDestinationScreen> {
     }
     _latController.text = (widget.currentLatitude ?? 0.0).toString();
     _lngController.text = (widget.currentLongitude ?? 0.0).toString();
+    _openingTimeController.text = widget.currentOpeningTime ?? 'Not Specified';
+    _closingTimeController.text = widget.currentClosingTime ?? 'Not Specified';
     _driveLinkController.addListener(_onDriveLinkChanged);
   }
 
@@ -96,6 +104,8 @@ class _AddEditDestinationScreenState extends State<AddEditDestinationScreen> {
     _driveLinkController.dispose();
     _latController.dispose();
     _lngController.dispose();
+    _openingTimeController.dispose();
+    _closingTimeController.dispose();
     super.dispose();
   }
 
@@ -114,6 +124,8 @@ class _AddEditDestinationScreenState extends State<AddEditDestinationScreen> {
               isAvailable: _isAvailable,
               latitude: double.tryParse(_latController.text.trim()) ?? 0.0,
               longitude: double.tryParse(_lngController.text.trim()) ?? 0.0,
+              openingTime: _openingTimeController.text.trim(),
+              closingTime: _closingTimeController.text.trim(),
             );
           } else {
             await adminService.updateDestination(
@@ -125,6 +137,8 @@ class _AddEditDestinationScreenState extends State<AddEditDestinationScreen> {
               isAvailable: _isAvailable,
               latitude: double.tryParse(_latController.text.trim()) ?? 0.0,
               longitude: double.tryParse(_lngController.text.trim()) ?? 0.0,
+              openingTime: _openingTimeController.text.trim(),
+              closingTime: _closingTimeController.text.trim(),
             );
           }
         if (mounted) {
@@ -295,6 +309,38 @@ class _AddEditDestinationScreenState extends State<AddEditDestinationScreen> {
                       ],
                     ),
                     const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () => _pickTime(_openingTimeController),
+                            child: AbsorbPointer(
+                              child: TextFormField(
+                                controller: _openingTimeController,
+                                style: const TextStyle(color: Colors.white),
+                                decoration: _buildInputDecoration('Opening Time', Icons.access_time),
+                                validator: (v) => v!.isEmpty ? 'Required' : null,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () => _pickTime(_closingTimeController),
+                            child: AbsorbPointer(
+                              child: TextFormField(
+                                controller: _closingTimeController,
+                                style: const TextStyle(color: Colors.white),
+                                decoration: _buildInputDecoration('Closing Time', Icons.access_time),
+                                validator: (v) => v!.isEmpty ? 'Required' : null,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
                     GlassContainer(
                       borderRadius: BorderRadius.circular(12),
                       padding: EdgeInsets.zero,
@@ -338,5 +384,32 @@ class _AddEditDestinationScreenState extends State<AddEditDestinationScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _pickTime(TextEditingController controller) async {
+    final TimeOfDay? picked = await showTimePicker(
+      context: context,
+      initialTime: const TimeOfDay(hour: 9, minute: 0),
+      builder: (context, child) {
+        return Theme(
+          data: ThemeData.dark().copyWith(
+            colorScheme: const ColorScheme.dark(
+              primary: Color(0xFF69F0AE),
+              onPrimary: Colors.black,
+              surface: Color(0xFF203A43),
+              onSurface: Colors.white,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+    if (picked != null) {
+      if (mounted) {
+        setState(() {
+          controller.text = picked.format(context);
+        });
+      }
+    }
   }
 }

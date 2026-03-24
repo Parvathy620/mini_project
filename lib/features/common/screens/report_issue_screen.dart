@@ -60,8 +60,7 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
     final link = _driveLinkController.text.trim();
     if (link.isEmpty) return;
     
-    final direct = DriveService.getDirectLinkFromUrl(link);
-    if (direct == null) {
+    if (!link.toLowerCase().contains('drive.google.com') && !link.toLowerCase().contains('docs.google.com')) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Invalid Google Drive Link')));
       return;
     }
@@ -100,7 +99,7 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
         reporterId: user.uid,
         reporterName: user.displayName ?? 'Anonymous',
         location: IssueLocation(address: _locationController.text.trim()),
-        mediaUrls: _mediaUrls.map((link) => DriveService.getDirectLinkFromUrl(link)!).toList(),
+        mediaUrls: List<String>.from(_mediaUrls),
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),
       );

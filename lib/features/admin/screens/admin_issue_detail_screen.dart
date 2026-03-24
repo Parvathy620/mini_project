@@ -8,6 +8,8 @@ import '../../../core/services/issue_service.dart';
 import '../../../core/widgets/luxury_glass.dart';
 import '../../../core/widgets/app_background.dart';
 import '../../../core/widgets/glass_container.dart';
+import '../../../core/services/drive_service.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class AdminIssueDetailScreen extends StatefulWidget {
   final IssueModel issue;
@@ -212,15 +214,43 @@ class _AdminIssueDetailScreenState extends State<AdminIssueDetailScreen> {
             scrollDirection: Axis.horizontal,
             itemCount: widget.issue.mediaUrls.length,
             itemBuilder: (context, index) {
+              final rawUrl = widget.issue.mediaUrls[index];
+              final imageUrl = DriveService.getDirectLinkFromUrl(rawUrl) ?? rawUrl;
+
               return Padding(
                 padding: const EdgeInsets.only(right: 12),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(16),
-                  child: Image.network(
-                    widget.issue.mediaUrls[index],
-                    width: 120,
-                    height: 120,
-                    fit: BoxFit.cover,
+                child: GestureDetector(
+                  onTap: () async {
+                    final uri = Uri.parse(rawUrl);
+                    if (await canLaunchUrl(uri)) {
+                      await launchUrl(uri, mode: LaunchMode.externalApplication);
+                    } else {
+                      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not open link')));
+                    }
+                  },
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: Image.network(
+                      imageUrl,
+                      width: 120,
+                      height: 120,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Container(
+                          width: 120,
+                          height: 120,
+                          color: Colors.white10,
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(Icons.broken_image, color: Colors.white38, size: 32),
+                              const SizedBox(height: 8),
+                              Text('Open Link', style: GoogleFonts.inter(color: const Color(0xFF69F0AE), fontSize: 12, fontWeight: FontWeight.bold)),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
                   ),
                 ),
               );

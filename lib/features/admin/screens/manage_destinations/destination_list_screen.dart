@@ -233,6 +233,8 @@ class _DestinationListScreenState extends State<DestinationListScreen> {
                                             isAvailable: dest.isAvailable,
                                             currentLatitude: dest.latitude,
                                             currentLongitude: dest.longitude,
+                                            currentOpeningTime: dest.openingTime,
+                                            currentClosingTime: dest.closingTime,
                                           )
                                         ),
                                       );

@@ -10,6 +10,8 @@ class DestinationModel {
   final bool isAvailable;
   final double latitude;
   final double longitude;
+  final String openingTime;
+  final String closingTime;
 
   DestinationModel({
     required this.id,
@@ -23,6 +25,8 @@ class DestinationModel {
     this.isAvailable = true,
     this.latitude = 0.0,
     this.longitude = 0.0,
+    this.openingTime = 'Not Specified',
+    this.closingTime = 'Not Specified',
   });
 
   factory DestinationModel.fromMap(Map<String, dynamic> data, String id) {
@@ -38,6 +42,8 @@ class DestinationModel {
       isAvailable: data['isAvailable'] ?? true,
       latitude: (data['latitude'] ?? 0.0).toDouble(),
       longitude: (data['longitude'] ?? 0.0).toDouble(),
+      openingTime: data['openingTime'] ?? 'Not Specified',
+      closingTime: data['closingTime'] ?? 'Not Specified',
     );
   }
 
@@ -53,6 +59,8 @@ class DestinationModel {
       'isAvailable': isAvailable,
       'latitude': latitude,
       'longitude': longitude,
+      'openingTime': openingTime,
+      'closingTime': closingTime,
     };
   }
 }

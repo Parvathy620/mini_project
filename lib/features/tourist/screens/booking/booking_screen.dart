@@ -71,11 +71,12 @@ class _BookingScreenState extends State<BookingScreen> {
       await bookingService.createBookingFromHold(_pendingBooking!, _currentHoldId!);
 
       if (mounted) {
+        final confirmedBooking = _pendingBooking!;
         showDialog(
           context: context,
           barrierDismissible: false,
           builder: (context) => BookingReceiptDialog(
-            bookings: [_pendingBooking!],
+            bookings: [confirmedBooking],
             onClose: () {
               Navigator.pop(context);
               Navigator.pop(context);

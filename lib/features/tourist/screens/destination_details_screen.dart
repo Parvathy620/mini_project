@@ -218,6 +218,23 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
                           ),
                         ],
                       ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          const Icon(Icons.access_time_rounded, color: Colors.white54, size: 16),
+                          const SizedBox(width: 6),
+                          Text(
+                            (widget.destination.openingTime == 'Not Specified' && widget.destination.closingTime == 'Not Specified')
+                                ? 'Timings Not Specified'
+                                : '${widget.destination.openingTime} - ${widget.destination.closingTime}',
+                            style: GoogleFonts.inter(
+                              fontSize: 14,
+                              color: Colors.white70,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
                       
                       const SizedBox(height: 24),
                       
